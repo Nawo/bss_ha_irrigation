@@ -121,6 +121,8 @@
       "flow": "Start blockieren wenn Durchfluss diesen Wert überschreitet ohne aktive Sektion (0 = beliebig).",
       "temperature": "Bewässerung bei Frost blockieren (unter diesem Temperaturwert)."
     },
+    "skipIfRainedToday": "Überspringen wenn es heute geregnet hat",
+    "skipIfRainedTodayDesc": "Überprüfe Wetterhistorie und blockiere Bewässerung wenn heute Regen erkannt wurde, auch wenn es aktuell nicht regnet.",
     "blocking": "Blockiert Bewässerung",
     "notBlocking": "Bewässerung erlaubt",
     "currentValue": "Aktueller Wert"
@@ -144,9 +146,11 @@
       "parallel": "Parallel (alle gleichzeitig)"
     },
     "skipIfRain": "Bei Regen überspringen",
+    "skipIfRainedToday": "Ueberspringen, wenn es heute geregnet hat",
     "skipIfSoil": "Bei feuchtem Boden überspringen",
     "skipIfFrost": "Bei Frost überspringen",
     "nextRun": "Nächste Ausführung",
+    "skippedDueToRain": "wegen Regen übersprungen",
     "days": {
       "mon": "Mo",
       "tue": "Di",

@@ -18,10 +18,10 @@ export interface Valve {
   zone_name?: string
   enabled: boolean
   notes?: string
-  ha_state?: 'on' | 'off' | 'unavailable' | string
+  ha_state?: 'on'|'off'|'unavailable'|string
 }
 
-export type SensorType = 'rain' | 'soil' | 'flow' | 'temperature' | 'weather'
+export type SensorType = 'rain'|'soil'|'flow'|'temperature'|'weather'
 
 export interface Sensor {
   id: number
@@ -33,18 +33,19 @@ export interface Sensor {
   notes?: string
   ha_state?: string
   is_blocking: boolean
+  skip_if_rained_today: boolean
 }
 
-export type WateringMode = 'sequential' | 'parallel'
+export type WateringMode = 'sequential'|'parallel'
 
 export interface Schedule {
   id: number
   zone_id: number
-  extra_zone_ids?: string    // comma-separated extra zone IDs
-  all_zone_ids?: number[]    // resolved list from backend
+  extra_zone_ids?: string  // comma-separated extra zone IDs
+  all_zone_ids?: number[]  // resolved list from backend
   zone_name?: string
-  weekdays: number   // bitmask
-  start_time: string // "HH:MM"
+  weekdays: number    // bitmask
+  start_time: string  // "HH:MM"
   duration_override_min?: number
   mode: WateringMode
   enabled: boolean
@@ -52,10 +53,13 @@ export interface Schedule {
   skip_if_soil_wet: boolean
   skip_if_frost: boolean
   next_run?: string
+  next_run_will_be_skipped?: boolean
+  next_run_skipped_reason?: string
 }
 
-export type SkipReason = 'rain' | 'soil_wet' | 'frost' | 'manual_stop' | 'ha_unavailable'
-export type TriggerSource = 'schedule' | 'manual'
+export type SkipReason =
+    'rain'|'soil_wet'|'frost'|'manual_stop'|'ha_unavailable'
+export type TriggerSource = 'schedule'|'manual'
 
 export interface WateringLog {
   id: number

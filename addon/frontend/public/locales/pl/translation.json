@@ -121,6 +121,8 @@
       "flow": "Blokuj start gdy przepływ przekracza tę wartość przy braku aktywnej sekcji (0 = jakikolwiek przepływ).",
       "temperature": "Blokuj podlewanie gdy temperatura spada poniżej tej wartości (ochrona przed mrozem)."
     },
+    "skipIfRainedToday": "Pomiń jeśli dzisiaj padało",
+    "skipIfRainedTodayDesc": "Sprawdź historię pogody i blokuj podlewanie jeśli dzisiaj wykryto deszcz, nawet jeśli aktualnie nie pada.",
     "blocking": "Blokuje podlewanie",
     "notBlocking": "Podlewanie dozwolone",
     "currentValue": "Aktualna wartość"
@@ -144,9 +146,15 @@
       "parallel": "Równoległy (wszystkie naraz)"
     },
     "skipIfRain": "Pomiń przy deszczu",
+    "skipIfRainedToday": "Pomiń, jeśli dzisiaj padało",
     "skipIfSoil": "Pomiń przy mokrej glebie",
     "skipIfFrost": "Pomiń przy mrozie",
+    "skip_if_rain": "Pomiń przy deszczu",
+    "skip_if_rained_today": "Pomiń, jeśli dzisiaj padało",
+    "skip_if_soil_wet": "Pomiń przy mokrej glebie",
+    "skip_if_frost": "Pomiń przy mrozie",
     "nextRun": "Następne uruchomienie",
+    "skippedDueToRain": "pominięte z powodu deszczu",
     "days": {
       "mon": "Pon",
       "tue": "Wt",

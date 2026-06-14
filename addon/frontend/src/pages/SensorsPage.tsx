@@ -79,6 +79,7 @@ function SensorForm({ initial, onSave, onCancel }: {
     form.sensor_type === 'soil' ? `${t('sensors.threshold')} (%)` :
     form.sensor_type === 'flow' ? `${t('sensors.threshold')} (L/min)` :
     `${t('sensors.threshold')} (°C)`
+  const isWeatherSensor = form.sensor_type === 'weather'
 
   return (
     <form onSubmit={submit} className="p-5 space-y-4">
@@ -116,6 +117,18 @@ function SensorForm({ initial, onSave, onCancel }: {
         <textarea className="input resize-none" rows={2}
           value={form.notes || ''} onChange={e => set('notes', e.target.value)} />
       </div>
+      {isWeatherSensor && (
+        <div className="space-y-2 border border-gray-200 dark:border-gray-800 rounded-lg p-3">
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="skip-rained-today" checked={!!form.skip_if_rained_today}
+              onChange={e => set('skip_if_rained_today', e.target.checked)} className="w-4 h-4 accent-primary-500" />
+            <label htmlFor="skip-rained-today" className="text-sm text-gray-700 dark:text-gray-300">
+              {t('sensors.skipIfRainedToday')}
+            </label>
+          </div>
+          <p className="text-xs text-gray-500 ml-6">{t('sensors.skipIfRainedTodayDesc')}</p>
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <input type="checkbox" id="s-en" checked={!!form.enabled}
           onChange={e => set('enabled', e.target.checked)} className="w-4 h-4 accent-primary-500" />

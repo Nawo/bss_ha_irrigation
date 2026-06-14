@@ -303,10 +303,19 @@ async def check_sensors_blocking(
         if val in ("unknown", "unavailable", "none", ""):
             continue
 
-        if sensor.sensor_type == SensorType.rain and skip_if_rain:
-            if val == "on":
+        if sensor.sensor_type == SensorType.rain:
+            if skip_if_rain and val == "on":
                 logger.info(f"Sensor block: rain sensor {sensor.entity_id} is ON")
                 return SkipReason.rain
+            if sensor.skip_if_rained_today:
+                local_now = datetime.now().astimezone()
+                local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+                # Convert local midnight to UTC for HA API
+                utc_midnight = local_midnight.astimezone(timezone.utc).replace(tzinfo=None)
+                history = await ha_client.get_history(sensor.entity_id, utc_midnight)
+                if val == "on" or any(h.get("state") == "on" for h in history if h):
+                    logger.info(f"Sensor block: rain sensor {sensor.entity_id} detected rain today")
+                    return SkipReason.rain
 
         elif sensor.sensor_type == SensorType.temperature and skip_if_frost:
             try:
@@ -340,11 +349,22 @@ async def check_sensors_blocking(
                 except (ValueError, TypeError):
                     pass
 
-        elif sensor.sensor_type == SensorType.weather and skip_if_rain:
-            raw_state = str(state.get("state", "")).strip().lower()
-            if raw_state in _RAIN_WEATHER_STATES:
-                logger.info(f"Sensor block: weather entity {sensor.entity_id} state={raw_state}")
+        elif sensor.sensor_type == SensorType.weather:
+            if skip_if_rain and val in _RAIN_WEATHER_STATES:
+                logger.info(f"Sensor block: weather entity {sensor.entity_id} state={val}")
                 return SkipReason.rain
+            if sensor.skip_if_rained_today:
+                local_now = datetime.now().astimezone()
+                local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+                # Convert local midnight to UTC for HA API
+                utc_midnight = local_midnight.astimezone(timezone.utc).replace(tzinfo=None)
+                history = await ha_client.get_history(sensor.entity_id, utc_midnight)
+                if val in _RAIN_WEATHER_STATES or any(
+                    str(h.get("state")).strip().lower() in _RAIN_WEATHER_STATES
+                    for h in history if h
+                ):
+                    logger.info(f"Sensor block: weather entity {sensor.entity_id} detected rain today")
+                    return SkipReason.rain
 
     return None
 

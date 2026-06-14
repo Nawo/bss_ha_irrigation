@@ -61,3 +61,5 @@ class ScheduleRead(ScheduleBase):
     zone_name: Optional[str] = None
     all_zone_ids: Optional[List[int]] = None   # resolved list: [zone_id] + extras
     next_run: Optional[str] = None   # ISO datetime string
+    next_run_will_be_skipped: bool = False
+    next_run_skipped_reason: Optional[str] = None

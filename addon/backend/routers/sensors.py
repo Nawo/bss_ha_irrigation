@@ -5,8 +5,11 @@ from sqlmodel import Session, select
 from backend.database.db import get_session
 from backend.models import Sensor, SensorCreate, SensorUpdate, SensorRead, SensorType
 from backend.services import ha_client
+from backend.services.irrigation import _active
 
 router = APIRouter(prefix="/api/sensors", tags=["sensors"])
+
+_RAIN_STATES = {"rainy", "pouring", "snowy", "snowy-rainy", "lightning-rainy", "hail"}
 
 
 def _enrich(sensor: Sensor) -> SensorRead:
@@ -26,6 +29,14 @@ def _enrich(sensor: Sensor) -> SensorRead:
         elif sensor.sensor_type == SensorType.soil:
             try:
                 sr.is_blocking = float(val) > (sensor.threshold or 80.0)
+            except (ValueError, TypeError):
+                pass
+        elif sensor.sensor_type == SensorType.weather:
+            sr.is_blocking = val.strip().lower() in _RAIN_STATES
+        elif sensor.sensor_type == SensorType.flow:
+            try:
+                threshold = sensor.threshold if sensor.threshold is not None else 0.0
+                sr.is_blocking = len(_active) == 0 and float(val) > threshold
             except (ValueError, TypeError):
                 pass
     return sr

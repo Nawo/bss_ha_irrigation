@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  # Mock Home Assistant - Flask server providing HA API endpoints
+  mock-ha:
+    build:
+      context: .
+      dockerfile: Dockerfile.mock-ha
+    ports:
+      - "5050:5050"
+    environment:
+      FLASK_ENV: development
+    volumes:
+      - ./test_mock_ha.py:/app/test_mock_ha.py
+    command: python test_mock_ha.py
+
+  # Irrigation BSS Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8099:8099"
+    environment:
+      HA_URL: http://mock-ha:5050
+      HA_TOKEN: test-token-12345
+      LOG_LEVEL: debug
+      DB_PATH: sqlite:////data/irrigation.db
+    depends_on:
+      - mock-ha
+    volumes:
+      - ./backend:/app/backend
+      - irrigation-data:/data
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8099
+
+volumes:
+  irrigation-data:

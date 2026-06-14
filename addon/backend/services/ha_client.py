@@ -188,3 +188,23 @@ def add_state_listener(callback: Callable):
 
 def get_cached_state(entity_id: str) -> Optional[dict]:
     return _states.get(entity_id)
+
+
+async def get_history(entity_id: str, start_time: "datetime") -> List[dict]:
+    if not settings.ha_token:
+        return []
+    # start_time is timezone-aware UTC datetime
+    iso_start = start_time.isoformat().replace("+00:00", "Z")
+    url = f"{settings.ha_url}/api/history/period/{iso_start}?filter_entity_id={entity_id}"
+    headers = {"Authorization": f"Bearer {settings.ha_token}"}
+    try:
+        async with aiohttp.ClientSession() as s:
+            async with s.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10.0)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    # HA history returns a list of lists: [[state_obj1, state_obj2, ...]]
+                    if data and isinstance(data, list) and len(data) > 0:
+                        return data[0]
+    except Exception as e:
+        logger.warning(f"Failed to fetch HA history for {entity_id}: {e}")
+    return []

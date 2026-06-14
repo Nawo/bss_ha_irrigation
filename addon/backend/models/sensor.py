@@ -18,6 +18,7 @@ class SensorBase(SQLModel):
     threshold: Optional[float] = None   # soil: %, temp: °C
     enabled: bool = Field(default=True)
     notes: Optional[str] = Field(default=None, max_length=500)
+    skip_if_rained_today: bool = Field(default=False)  # Only for weather sensors
 
 
 class Sensor(SensorBase, table=True):
@@ -36,6 +37,7 @@ class SensorUpdate(SQLModel):
     threshold: Optional[float] = None
     enabled: Optional[bool] = None
     notes: Optional[str] = None
+    skip_if_rained_today: Optional[bool] = None
 
 
 class SensorRead(SensorBase):
