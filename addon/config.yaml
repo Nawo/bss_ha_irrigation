@@ -1,8 +1,8 @@
-name: "Irrigation BSS"
-version: "1.4.4"
+name: "Irrigation BSS (Nawo fork)"
+version: "1.5"
 slug: "irrigation_bss"
 description: "Advanced irrigation management — zones, valves, sensors, scheduler"
-url: "https://github.com/BSS-Baumgart/bss_ha_irrigation"
+url: "https://github.com/Nawo/bss_ha_irrigation"
 arch:
   - aarch64
   - amd64
