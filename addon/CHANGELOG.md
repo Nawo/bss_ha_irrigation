@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6
+
+- New: `sensor.irrigation_bss_watering_status` publishes localized status text and active zone name (e.g. `Aktywne - Dom tył`) with machine-readable `state_value`.
+- Improved: localized watering status display now follows addon language setting (`pl`/`en`) using app configuration stored in SQLite.
+- Improved: moved `skip_if_rained_today` from schedule model to sensor model, making rain skip behavior consistent across schedules and sensors.
+- Fixed: rain-history skip computation now uses correct local-midnight to UTC conversion, preventing timezone bugs.
+- New: weather-sensor rain skip configuration checkbox in the frontend.
+- New: local Home Assistant mock environment for testing plus Docker Compose setup and unit tests.
+- New: detailed documentation for testing, implementation, and quick start.
+
 ## 1.4.4
 
 - Fixed: Color theme settings now correctly update the UI in real-time — all background, surface, border, button, badge, and accent elements respond to custom colour changes.

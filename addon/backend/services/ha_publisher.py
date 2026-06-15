@@ -3,14 +3,19 @@ import logging
 from typing import Optional
 
 import aiohttp
+from sqlmodel import Session, select
 
 from backend.config import settings
 from backend.services import irrigation
 from backend.services import scheduler as sched
+from backend.database.db import engine
+from backend.models import Schedule, Zone, AppSetting, SkipReason
+from backend.services.irrigation import check_sensors_blocking
 
 logger = logging.getLogger(__name__)
 
 _running = False
+_publisher_task: Optional[asyncio.Task] = None
 PUBLISH_INTERVAL = 10
 
 STATUS_LABELS = {
@@ -19,17 +24,16 @@ STATUS_LABELS = {
         "rain_blocked": "Blocked - rain",
         "frost_protection": "Blocked - frost",
         "inactive": "Inactive",
-        "friendly_name": "Watering Status",
+        "friendly_name": "Irrigation BSS — Watering Status",
     },
     "pl": {
         "active": "Aktywne",
         "rain_blocked": "Zablokowane - deszcz",
         "frost_protection": "Zablokowane - mróz",
         "inactive": "Nieaktywne",
-        "friendly_name": "Status podlewania",
+        "friendly_name": "Irrigation BSS — Status podlewania",
     },
 }
-
 
 async def _push_state(session: aiohttp.ClientSession, entity_id: str,
                       state: str, attributes: dict):
@@ -47,13 +51,9 @@ async def _push_state(session: aiohttp.ClientSession, entity_id: str,
     except Exception as e:
         logger.debug(f"HA push error for {entity_id}: {e}")
 
-
-def _get_language() -> str:
+def _get_language_sync() -> str:
     lang = settings.default_language
     try:
-        from sqlmodel import Session
-        from backend.models import AppSetting
-        from backend.database.db import engine
         with Session(engine) as session:
             row = session.get(AppSetting, "app_language")
             if row and row.value:
@@ -62,48 +62,57 @@ def _get_language() -> str:
         pass
     return lang
 
+def _get_db_data_sync():
+    """Wydzielona funkcja synchroniczna dla zapytań SQLModel"""
+    with Session(engine) as session:
+        schedules = session.exec(select(Schedule).where(Schedule.enabled == True)).all()
+        runs = [sched.get_next_run(s.id) for s in schedules if sched.get_next_run(s.id)]
+        next_run = min(runs) if runs else None
+        all_zones = session.exec(select(Zone)).all()
+        return next_run, all_zones
 
 def _get_watering_state(active_zones: list[dict], rain_blocked: bool,
-                        frost_blocked: bool, lang: str) -> tuple[str, str]:
-    machine_state = (
-        "active" if active_zones else
-        ("rain_blocked" if rain_blocked else
-         ("frost_protection" if frost_blocked else "inactive"))
-    )
+                        frost_blocked: bool, lang: str) -> tuple[str, str, str]:
+    if active_zones:
+        machine_state = "active"
+        icon = "mdi:sprinkler"
+    elif rain_blocked:
+        machine_state = "rain_blocked"
+        icon = "mdi:weather-rainy"
+    elif frost_blocked:
+        machine_state = "frost_protection"
+        icon = "mdi:snowflake"
+    else:
+        machine_state = "inactive"
+        icon = "mdi:sprinkler-variant"
+
     labels = STATUS_LABELS.get(lang, STATUS_LABELS["en"])
     active_zone_name = active_zones[0]["zone_name"] if active_zones else None
+    
     if machine_state == "active" and active_zone_name:
-        return machine_state, f"{labels['active']} - {active_zone_name}"
-    return machine_state, labels[machine_state]
+        display_state = f"{labels['active']} - {active_zone_name}"
+    else:
+        display_state = labels[machine_state]
+        
+    return machine_state, display_state, icon
 
-
-async def publish_once():
+async def publish_once(http_session: aiohttp.ClientSession):
     if not settings.ha_token:
         return
 
     active_zones = irrigation.get_active_zones()
     any_watering = len(active_zones) > 0
 
-    from backend.services.irrigation import check_sensors_blocking
-    from backend.models import SkipReason
     skip = await check_sensors_blocking()
     rain_blocked = skip in (SkipReason.rain,)
     frost_blocked = skip in (SkipReason.frost,)
 
-    lang = _get_language()
-
-    from sqlmodel import Session, select
-    from backend.database.db import engine
-    from backend.models import Schedule
-    next_run: Optional[str] = None
-    with Session(engine) as session:
-        schedules = session.exec(select(Schedule).where(Schedule.enabled == True)).all()
-    runs = [sched.get_next_run(s.id) for s in schedules if sched.get_next_run(s.id)]
-    if runs:
-        next_run = min(runs)
+    # Uruchomienie synchronicznych zapytań do DB w bezpiecznym wątku (zapobiega blokowaniu asyncio)
+    lang = await asyncio.to_thread(_get_language_sync)
+    next_run, all_zones = await asyncio.to_thread(_get_db_data_sync)
 
     active_zone = active_zones[0] if active_zones else None
-    machine_state, display_state = _get_watering_state(
+    machine_state, display_state, dynamic_icon = _get_watering_state(
         active_zones, rain_blocked, frost_blocked, lang
     )
 
@@ -114,11 +123,10 @@ async def publish_once():
             "icon": "mdi:sprinkler-variant",
             "integration": "irrigation_bss",
         }),
-        ("sensor.irrigation_bss_watering_status",
-         display_state,
+        ("sensor.irrigation_bss_watering_status", display_state,
          {
              "friendly_name": STATUS_LABELS.get(lang, STATUS_LABELS["en"])["friendly_name"],
-             "icon": "mdi:information-outline",
+             "icon": dynamic_icon, # Dynamiczna ikona zdefiniowana wyżej
              "integration": "irrigation_bss",
              "status_reason": skip.value if skip else None,
              "state_value": machine_state,
@@ -146,16 +154,18 @@ async def publish_once():
             "icon": "mdi:calendar-clock",
             "integration": "irrigation_bss",
         }),
+        
+        # ZMIANA: Klasa "problem" zapewni czerwoną ikonę natywnie w HA
         ("binary_sensor.irrigation_bss_rain_blocked", "on" if rain_blocked else "off", {
             "friendly_name": "Irrigation BSS — Rain Blocked",
-            "device_class": "moisture",
+            "device_class": "problem", 
             "icon": "mdi:weather-rainy",
             "integration": "irrigation_bss",
         }),
         ("binary_sensor.irrigation_bss_frost_blocked", "on" if frost_blocked else "off", {
             "friendly_name": "Irrigation BSS — Frost Protection Active",
-            "device_class": "cold",
-            "icon": "mdi:snowflake",
+            "device_class": "problem",
+            "icon": "mdi:snowflake-alert",
             "integration": "irrigation_bss",
         }),
     ]
@@ -177,10 +187,6 @@ async def publish_once():
             }
         ))
 
-    from backend.models import Zone
-    with Session(engine) as session:
-        all_zones = session.exec(select(Zone)).all()
-
     active_ids = {z["zone_id"] for z in active_zones}
     for zone in all_zones:
         if zone.id not in active_ids:
@@ -197,30 +203,36 @@ async def publish_once():
                 }
             ))
 
-    async with aiohttp.ClientSession() as http:
-        await asyncio.gather(*[
-            _push_state(http, eid, state, attrs)
-            for eid, state, attrs in entities
-        ])
+    # Bezpieczne, jednoczesne wysyłanie żądań
+    await asyncio.gather(*[
+        _push_state(http_session, eid, state, attrs)
+        for eid, state, attrs in entities
+    ])
 
     logger.debug(f"Published {len(entities)} entities to HA")
-
 
 async def run_publisher():
     global _running
     _running = True
     logger.info(f"HA publisher started (interval: {PUBLISH_INTERVAL}s)")
-    while _running:
-        try:
-            await publish_once()
-        except Exception as e:
-            logger.warning(f"HA publisher error: {e}")
-        await asyncio.sleep(PUBLISH_INTERVAL)
-
+    
+    # Utworzenie JEDNEJ sesji na cały cykl życia pętli
+    async with aiohttp.ClientSession() as http_session:
+        while _running:
+            try:
+                await publish_once(http_session)
+            except Exception as e:
+                logger.warning(f"HA publisher error: {e}")
+            await asyncio.sleep(PUBLISH_INTERVAL)
 
 def start():
-    asyncio.create_task(run_publisher())
-
+    global _publisher_task
+    # Zabezpieczenie przed Race Condition: jeśli task już istnieje i działa, nie odpalaj drugiego
+    if _publisher_task is not None and not _publisher_task.done():
+        logger.warning("HA publisher is already running. Ignoring start request.")
+        return
+        
+    _publisher_task = asyncio.create_task(run_publisher())
 
 def stop():
     global _running
