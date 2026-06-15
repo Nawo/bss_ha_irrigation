@@ -170,6 +170,29 @@ async def call_service(domain: str, service: str, data: dict = None) -> dict:
     })
 
 
+async def call_service_with_response(domain: str, service: str, data: dict = None,
+                                      target: dict = None) -> Optional[dict]:
+    """Call an HA service that returns data (return_response=True).
+    Used for services like weather.get_forecasts which return forecast data."""
+    payload = {
+        "type": "call_service",
+        "domain": domain,
+        "service": service,
+        "service_data": data or {},
+        "return_response": True,
+    }
+    if target:
+        payload["target"] = target
+    try:
+        result = await _send(payload)
+        if result.get("success"):
+            return result.get("result", {}).get("response")
+        logger.warning(f"call_service_with_response failed: {result}")
+    except Exception as e:
+        logger.warning(f"call_service_with_response error: {e}")
+    return None
+
+
 async def turn_on(entity_id: str):
     domain = entity_id.split(".")[0]
     await call_service(domain, "turn_on", {"entity_id": entity_id})

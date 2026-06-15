@@ -128,11 +128,15 @@ function ScheduleForm({ initial, zones, onSave, onCancel }: {
       </div>
       <div className="space-y-2 border border-gray-200 dark:border-gray-800 rounded-lg p-3">
         <p className="text-xs text-gray-500 mb-2">Skip conditions</p>
-        {(['skip_if_rain', 'skip_if_soil_wet', 'skip_if_frost'] as const).map(key => (
+        {([
+          { key: 'skip_if_rain', label: 'skipIfRain' },
+          { key: 'skip_if_soil_wet', label: 'skipIfSoil' },
+          { key: 'skip_if_frost', label: 'skipIfFrost' },
+        ] as const).map(({ key, label }) => (
           <div key={key} className="flex items-center gap-2">
             <input type="checkbox" id={key} checked={!!form[key]}
               onChange={e => set(key, e.target.checked)} className="w-4 h-4 accent-primary-500" />
-            <label htmlFor={key} className="text-sm text-gray-300">{t(`schedule.${key}`)}</label>
+            <label htmlFor={key} className="text-sm text-gray-300">{t(`schedule.${label}`)}</label>
           </div>
         ))}
       </div>

@@ -33,6 +33,8 @@ async def _enrich(sensor: Sensor) -> SensorRead:
                 utc_midnight = local_midnight.astimezone(timezone.utc).replace(tzinfo=None)
                 history = await ha_client.get_history(sensor.entity_id, utc_midnight)
                 sr.rained_today = val == "on" or any(str(h.get("state")).strip().lower() == "on" for h in history if h)
+                if sr.rained_today:
+                    sr.is_blocking = True
         elif sensor.sensor_type == SensorType.temperature:
             try:
                 sr.is_blocking = float(val) < (sensor.threshold or 2.0)
@@ -54,6 +56,8 @@ async def _enrich(sensor: Sensor) -> SensorRead:
                     str(h.get("state")).strip().lower() in _RAIN_STATES
                     for h in history if h
                 )
+                if sr.rained_today:
+                    sr.is_blocking = True
         elif sensor.sensor_type == SensorType.flow:
             try:
                 threshold = sensor.threshold if sensor.threshold is not None else 0.0

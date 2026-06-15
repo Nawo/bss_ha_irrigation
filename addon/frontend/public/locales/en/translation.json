@@ -147,13 +147,8 @@
       "parallel": "Parallel (all at once)"
     },
     "skipIfRain": "Skip if raining",
-    "skipIfRainedToday": "Skip if it rained today",
     "skipIfSoil": "Skip if soil is wet",
     "skipIfFrost": "Skip if frost",
-    "skip_if_rain": "Skip if raining",
-    "skip_if_rained_today": "Skip if it rained today",
-    "skip_if_soil_wet": "Skip if soil is wet",
-    "skip_if_frost": "Skip if frost",
     "nextRun": "Next run",
     "skippedDueToRain": "skipped due to rain",
     "days": {

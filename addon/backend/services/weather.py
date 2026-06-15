@@ -41,18 +41,55 @@ async def _from_ha_entity(entity_id: str) -> dict:
     attrs = state.get("attributes", {})
     condition = state.get("state", "unknown")
     temp = attrs.get("temperature")
-    precip = attrs.get("precipitation_probability", 0)
+    precip = attrs.get("precipitation_probability")
     rain_conditions = {"rainy", "pouring", "lightning-rainy", "lightning"}
-    rain_expected = condition in rain_conditions or (precip is not None and precip > 50)
+
+    # Try to get forecast from attributes first (older HA versions)
+    raw_forecast = attrs.get("forecast", [])
+
+    # If forecast is empty, try the weather.get_forecasts service (HA 2024.3+)
+    if not raw_forecast:
+        try:
+            response = await ha_client.call_service_with_response(
+                "weather", "get_forecasts",
+                data={"type": "hourly"},
+                target={"entity_id": entity_id},
+            )
+            if response and entity_id in response:
+                raw_forecast = response[entity_id].get("forecast", [])
+        except Exception as e:
+            logger.warning(f"Failed to get forecast from HA service: {e}")
+            # Try daily forecast as fallback
+            try:
+                response = await ha_client.call_service_with_response(
+                    "weather", "get_forecasts",
+                    data={"type": "daily"},
+                    target={"entity_id": entity_id},
+                )
+                if response and entity_id in response:
+                    raw_forecast = response[entity_id].get("forecast", [])
+            except Exception:
+                pass
 
     forecast = []
-    for f in attrs.get("forecast", [])[:24]:
+    max_precip_from_forecast = 0
+    for f in raw_forecast[:24]:
+        fp = f.get("precipitation_probability", 0) or 0
+        if fp > max_precip_from_forecast:
+            max_precip_from_forecast = fp
         forecast.append({
             "datetime": f.get("datetime"),
             "condition": f.get("condition"),
             "temperature": f.get("temperature"),
-            "precipitation_probability": f.get("precipitation_probability", 0),
+            "precipitation_probability": fp,
         })
+
+    # If precip probability not available on entity, use the max from forecast
+    if precip is None and forecast:
+        precip = max_precip_from_forecast
+
+    precip = precip or 0
+    rain_expected = condition in rain_conditions or (precip is not None and precip > 50)
 
     return {
         "condition": condition,

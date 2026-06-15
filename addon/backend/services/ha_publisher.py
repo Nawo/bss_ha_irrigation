@@ -9,7 +9,7 @@ from backend.config import settings
 from backend.services import irrigation
 from backend.services import scheduler as sched
 from backend.database.db import engine
-from backend.models import Schedule, Zone, AppSetting, SkipReason
+from backend.models import Schedule, Zone, AppSetting, SkipReason, Sensor
 from backend.services.irrigation import check_sensors_blocking
 
 logger = logging.getLogger(__name__)
@@ -22,6 +22,7 @@ STATUS_LABELS = {
     "en": {
         "active": "Active",
         "rain_blocked": "Blocked - rain",
+        "rain_today_blocked": "Blocked - rained today",
         "frost_protection": "Blocked - frost",
         "inactive": "Inactive",
         "friendly_name": "Irrigation BSS — Watering Status",
@@ -29,6 +30,7 @@ STATUS_LABELS = {
     "pl": {
         "active": "Aktywne",
         "rain_blocked": "Zablokowane - deszcz",
+        "rain_today_blocked": "Zablokowane - padało dziś",
         "frost_protection": "Zablokowane - mróz",
         "inactive": "Nieaktywne",
         "friendly_name": "Irrigation BSS — Status podlewania",
@@ -61,6 +63,48 @@ def _get_language_sync() -> str:
     except Exception:
         pass
     return lang
+
+
+async def _check_rained_today() -> bool:
+    """Check if any sensor with skip_if_rained_today is detecting historical rain."""
+    from backend.models import SensorType
+    with Session(engine) as session:
+        sensors = session.exec(
+            select(Sensor).where(Sensor.enabled == True, Sensor.skip_if_rained_today == True)
+        ).all()
+    if not sensors:
+        return False
+
+    from backend.services import ha_client
+    from datetime import datetime, timezone
+    _RAIN_STATES = {"rainy", "pouring", "snowy", "snowy-rainy", "lightning-rainy", "hail"}
+
+    local_now = datetime.now().astimezone()
+    local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    utc_midnight = local_midnight.astimezone(timezone.utc).replace(tzinfo=None)
+
+    for sensor in sensors:
+        state = ha_client.get_cached_state(sensor.entity_id)
+        if not state:
+            continue
+        val = str(state.get("state", "")).strip().lower()
+
+        if sensor.sensor_type == SensorType.rain:
+            if val == "on":
+                return True
+            history = await ha_client.get_history(sensor.entity_id, utc_midnight)
+            if any(str(h.get("state")).strip().lower() == "on" for h in history if h):
+                return True
+
+        elif sensor.sensor_type == SensorType.weather:
+            if val in _RAIN_STATES:
+                # Current rain — not "rained today" specifically
+                return False
+            history = await ha_client.get_history(sensor.entity_id, utc_midnight)
+            if any(str(h.get("state")).strip().lower() in _RAIN_STATES for h in history if h):
+                return True
+
+    return False
 
 def _get_db_data_sync():
     """Wydzielona funkcja synchroniczna dla zapytań SQLModel"""
@@ -112,14 +156,26 @@ async def publish_once(http_session: aiohttp.ClientSession):
     rain_blocked = skip in (SkipReason.rain,)
     frost_blocked = skip in (SkipReason.frost,)
 
+    # Check if the rain block is actually due to historical rain (rained today)
+    rained_today = False
+    if rain_blocked:
+        rained_today = await _check_rained_today()
+
     # Uruchomienie synchronicznych zapytań do DB w bezpiecznym wątku (zapobiega blokowaniu asyncio)
     lang = await asyncio.to_thread(_get_language_sync)
     next_run, all_zones = await asyncio.to_thread(_get_db_data_sync)
 
     active_zone = active_zones[0] if active_zones else None
-    machine_state, display_state, dynamic_icon = _get_watering_state(
-        active_zones, rain_blocked, frost_blocked, lang
-    )
+    # Use more specific label when rain block is from today's history
+    if rained_today and not any_watering:
+        labels = STATUS_LABELS.get(lang, STATUS_LABELS["en"])
+        machine_state = "rain_today_blocked"
+        display_state = labels["rain_today_blocked"]
+        dynamic_icon = "mdi:weather-rainy"
+    else:
+        machine_state, display_state, dynamic_icon = _get_watering_state(
+            active_zones, rain_blocked, frost_blocked, lang
+        )
 
     entities = [
         ("binary_sensor.irrigation_bss_watering", "on" if any_watering else "off", {

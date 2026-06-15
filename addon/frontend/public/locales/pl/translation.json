@@ -147,13 +147,8 @@
       "parallel": "Równoległy (wszystkie naraz)"
     },
     "skipIfRain": "Pomiń przy deszczu",
-    "skipIfRainedToday": "Pomiń, jeśli dzisiaj padało",
     "skipIfSoil": "Pomiń przy mokrej glebie",
     "skipIfFrost": "Pomiń przy mrozie",
-    "skip_if_rain": "Pomiń przy deszczu",
-    "skip_if_rained_today": "Pomiń, jeśli dzisiaj padało",
-    "skip_if_soil_wet": "Pomiń przy mokrej glebie",
-    "skip_if_frost": "Pomiń przy mrozie",
     "nextRun": "Następne uruchomienie",
     "skippedDueToRain": "pominięte z powodu deszczu",
     "days": {

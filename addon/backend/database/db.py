@@ -9,7 +9,6 @@ engine = create_engine(settings.db_path, echo=False)
 # Each entry: (table, column, column_definition)
 _MIGRATIONS: list[tuple[str, str, str]] = [
     ("schedules", "extra_zone_ids", "TEXT"),
-    ("schedules", "skip_if_rained_today", "INTEGER DEFAULT 0"),
     ("sensors", "skip_if_rained_today", "INTEGER DEFAULT 0"),
 ]
 
