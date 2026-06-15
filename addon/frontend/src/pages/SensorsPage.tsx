@@ -212,6 +212,11 @@ export default function SensorsPage() {
                   {formatThreshold(sensor) && (
                     <div className="text-xs text-gray-500 mt-1">{t('sensors.threshold')}: {formatThreshold(sensor)}</div>
                   )}
+                  {sensor.rained_today && sensor.skip_if_rained_today && (
+                    <div className="mt-1">
+                      <StatusBadge variant="red">{t('sensors.blockedToday')}</StatusBadge>
+                    </div>
+                  )}
                 </div>
                 {sensor.is_blocking
                   ? <StatusBadge variant="red" pulse>{t('sensors.blocking')}</StatusBadge>

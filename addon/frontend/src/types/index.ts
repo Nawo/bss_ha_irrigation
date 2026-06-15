@@ -34,6 +34,7 @@ export interface Sensor {
   ha_state?: string
   is_blocking: boolean
   skip_if_rained_today: boolean
+  rained_today?: boolean
 }
 
 export type WateringMode = 'sequential'|'parallel'

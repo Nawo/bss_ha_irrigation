@@ -1,6 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
+from datetime import datetime, timezone
 
 from backend.database.db import get_session
 from backend.models import Sensor, SensorCreate, SensorUpdate, SensorRead, SensorType
@@ -12,15 +13,26 @@ router = APIRouter(prefix="/api/sensors", tags=["sensors"])
 _RAIN_STATES = {"rainy", "pouring", "snowy", "snowy-rainy", "lightning-rainy", "hail"}
 
 
-def _enrich(sensor: Sensor) -> SensorRead:
+async def _enrich(sensor: Sensor) -> SensorRead:
     sr = SensorRead.model_validate(sensor)
     state = ha_client.get_cached_state(sensor.entity_id)
     sr.ha_state = state.get("state") if state else "unavailable"
+
+    # default
+    sr.is_blocking = False
+    sr.rained_today = None
 
     if state and sensor.enabled:
         val = state.get("state", "")
         if sensor.sensor_type == SensorType.rain:
             sr.is_blocking = val == "on"
+            if sensor.skip_if_rained_today:
+                # compute history since local midnight
+                local_now = datetime.now().astimezone()
+                local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+                utc_midnight = local_midnight.astimezone(timezone.utc).replace(tzinfo=None)
+                history = await ha_client.get_history(sensor.entity_id, utc_midnight)
+                sr.rained_today = val == "on" or any(str(h.get("state")).strip().lower() == "on" for h in history if h)
         elif sensor.sensor_type == SensorType.temperature:
             try:
                 sr.is_blocking = float(val) < (sensor.threshold or 2.0)
@@ -33,6 +45,15 @@ def _enrich(sensor: Sensor) -> SensorRead:
                 pass
         elif sensor.sensor_type == SensorType.weather:
             sr.is_blocking = val.strip().lower() in _RAIN_STATES
+            if sensor.skip_if_rained_today:
+                local_now = datetime.now().astimezone()
+                local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+                utc_midnight = local_midnight.astimezone(timezone.utc).replace(tzinfo=None)
+                history = await ha_client.get_history(sensor.entity_id, utc_midnight)
+                sr.rained_today = val.strip().lower() in _RAIN_STATES or any(
+                    str(h.get("state")).strip().lower() in _RAIN_STATES
+                    for h in history if h
+                )
         elif sensor.sensor_type == SensorType.flow:
             try:
                 threshold = sensor.threshold if sensor.threshold is not None else 0.0
@@ -43,30 +64,33 @@ def _enrich(sensor: Sensor) -> SensorRead:
 
 
 @router.get("", response_model=List[SensorRead])
-def list_sensors(session: Session = Depends(get_session)):
+async def list_sensors(session: Session = Depends(get_session)):
     sensors = session.exec(select(Sensor)).all()
-    return [_enrich(s) for s in sensors]
+    result = []
+    for s in sensors:
+        result.append(await _enrich(s))
+    return result
 
 
 @router.post("", response_model=SensorRead, status_code=201)
-def create_sensor(sensor_in: SensorCreate, session: Session = Depends(get_session)):
+async def create_sensor(sensor_in: SensorCreate, session: Session = Depends(get_session)):
     sensor = Sensor.model_validate(sensor_in)
     session.add(sensor)
     session.commit()
     session.refresh(sensor)
-    return _enrich(sensor)
+    return await _enrich(sensor)
 
 
 @router.get("/{sensor_id}", response_model=SensorRead)
-def get_sensor(sensor_id: int, session: Session = Depends(get_session)):
+async def get_sensor(sensor_id: int, session: Session = Depends(get_session)):
     sensor = session.get(Sensor, sensor_id)
     if not sensor:
         raise HTTPException(404, "Sensor not found")
-    return _enrich(sensor)
+    return await _enrich(sensor)
 
 
 @router.patch("/{sensor_id}", response_model=SensorRead)
-def update_sensor(sensor_id: int, sensor_in: SensorUpdate, session: Session = Depends(get_session)):
+async def update_sensor(sensor_id: int, sensor_in: SensorUpdate, session: Session = Depends(get_session)):
     sensor = session.get(Sensor, sensor_id)
     if not sensor:
         raise HTTPException(404, "Sensor not found")
@@ -75,7 +99,7 @@ def update_sensor(sensor_id: int, sensor_in: SensorUpdate, session: Session = De
     session.add(sensor)
     session.commit()
     session.refresh(sensor)
-    return _enrich(sensor)
+    return await _enrich(sensor)
 
 
 @router.delete("/{sensor_id}", status_code=204)

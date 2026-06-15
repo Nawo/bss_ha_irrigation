@@ -44,3 +44,4 @@ class SensorRead(SensorBase):
     id: int
     ha_state: Optional[str] = None
     is_blocking: bool = False   # True = currently blocks watering
+    rained_today: Optional[bool] = None  # True if history shows rain since local midnight

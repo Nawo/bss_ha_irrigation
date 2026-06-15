@@ -124,6 +124,7 @@
     "skipIfRainedToday": "Pomiń jeśli dzisiaj padało",
     "skipIfRainedTodayDesc": "Sprawdź historię pogody i blokuj podlewanie jeśli dzisiaj wykryto deszcz, nawet jeśli aktualnie nie pada.",
     "blocking": "Blokuje podlewanie",
+    "blockedToday": "Blokowanie - dziś padało",
     "notBlocking": "Podlewanie dozwolone",
     "currentValue": "Aktualna wartość"
   },

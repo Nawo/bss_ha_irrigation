@@ -124,6 +124,7 @@
     "skipIfRainedToday": "Skip if it rained today",
     "skipIfRainedTodayDesc": "Check weather history and block watering if any rain was detected today in this location, even if currently not raining.",
     "blocking": "Blocking watering",
+    "blockedToday": "Blocked - rained today",
     "notBlocking": "Watering allowed",
     "currentValue": "Current value"
   },

@@ -124,6 +124,7 @@
     "skipIfRainedToday": "Überspringen wenn es heute geregnet hat",
     "skipIfRainedTodayDesc": "Überprüfe Wetterhistorie und blockiere Bewässerung wenn heute Regen erkannt wurde, auch wenn es aktuell nicht regnet.",
     "blocking": "Blockiert Bewässerung",
+    "blockedToday": "Blockiert - heute geregnet",
     "notBlocking": "Bewässerung erlaubt",
     "currentValue": "Aktueller Wert"
   },
