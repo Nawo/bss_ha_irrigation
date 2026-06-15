@@ -66,10 +66,15 @@ def _get_db_data_sync():
     """Wydzielona funkcja synchroniczna dla zapytań SQLModel"""
     with Session(engine) as session:
         schedules = session.exec(select(Schedule).where(Schedule.enabled == True)).all()
-        runs = [sched.get_next_run(s.id) for s in schedules if sched.get_next_run(s.id)]
+        # Bezpieczniejsze pobieranie harmonogramów
+        runs = [run for s in schedules if (run := sched.get_next_run(s.id)) is not None]
         next_run = min(runs) if runs else None
+        
         all_zones = session.exec(select(Zone)).all()
-        return next_run, all_zones
+        # KLUCZOWA ZMIANA: "Rozpakowujemy" obiekty do słowników, żeby uniknąć błędu po zamknięciu sesji
+        zones_data = [{"id": z.id, "name": z.name} for z in all_zones]
+        
+        return next_run, zones_data
 
 def _get_watering_state(active_zones: list[dict], rain_blocked: bool,
                         frost_blocked: bool, lang: str) -> tuple[str, str, str]:
@@ -187,21 +192,22 @@ async def publish_once(http_session: aiohttp.ClientSession):
             }
         ))
 
-    active_ids = {z["zone_id"] for z in active_zones}
-    for zone in all_zones:
-        if zone.id not in active_ids:
-            entities.append((
-                f"binary_sensor.irrigation_bss_zone_{zone.id}",
-                "off",
-                {
-                    "friendly_name": f"Irrigation BSS — {zone.name}",
-                    "device_class": "running",
-                    "icon": "mdi:sprinkler",
-                    "zone_id": zone.id,
-                    "remaining_sec": 0,
-                    "integration": "irrigation_bss",
-                }
-            ))
+        active_ids = {z["zone_id"] for z in active_zones}
+        for zone in all_zones:
+            # Zmieniamy .id i .name na ["id"] i ["name"]
+            if zone["id"] not in active_ids:
+                entities.append((
+                    f"binary_sensor.irrigation_bss_zone_{zone['id']}",
+                    "off",
+                    {
+                        "friendly_name": f"Irrigation BSS — {zone['name']}",
+                        "device_class": "running",
+                        "icon": "mdi:sprinkler",
+                        "zone_id": zone["id"],
+                        "remaining_sec": 0,
+                        "integration": "irrigation_bss",
+                    }
+                ))
 
     # Bezpieczne, jednoczesne wysyłanie żądań
     await asyncio.gather(*[
