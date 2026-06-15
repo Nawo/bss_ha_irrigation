@@ -53,6 +53,10 @@ The dashboard shows live zone status, countdown timers, blocking sensor alerts a
 The addon publishes its state back to Home Assistant as entities you can use in dashboards and automations:
 
 - `binary_sensor.irrigation_bss_watering` — any zone active
+- `sensor.irrigation_bss_watering_status` — watering status with localized text and reason
+  - state values: `active`, `rain_blocked`, `frost_protection`, `inactive`
+  - if active, display text becomes e.g. `Aktywne - Dom tył` or `Active - Back yard`
+  - attributes: `status_reason`, `state_value`, `active`, `active_zone`, `remaining_sec`, `next_run`, `status_text`
 - `sensor.irrigation_bss_active_zone` — active zone name
 - `sensor.irrigation_bss_remaining_sec` — remaining seconds
 - `sensor.irrigation_bss_next_watering` — next scheduled run

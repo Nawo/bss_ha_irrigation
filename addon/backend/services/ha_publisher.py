@@ -13,6 +13,23 @@ logger = logging.getLogger(__name__)
 _running = False
 PUBLISH_INTERVAL = 10
 
+STATUS_LABELS = {
+    "en": {
+        "active": "Active",
+        "rain_blocked": "Blocked - rain",
+        "frost_protection": "Blocked - frost",
+        "inactive": "Inactive",
+        "friendly_name": "Watering Status",
+    },
+    "pl": {
+        "active": "Aktywne",
+        "rain_blocked": "Zablokowane - deszcz",
+        "frost_protection": "Zablokowane - mróz",
+        "inactive": "Nieaktywne",
+        "friendly_name": "Status podlewania",
+    },
+}
+
 
 async def _push_state(session: aiohttp.ClientSession, entity_id: str,
                       state: str, attributes: dict):
@@ -31,6 +48,35 @@ async def _push_state(session: aiohttp.ClientSession, entity_id: str,
         logger.debug(f"HA push error for {entity_id}: {e}")
 
 
+def _get_language() -> str:
+    lang = settings.default_language
+    try:
+        from sqlmodel import Session
+        from backend.models import AppSetting
+        from backend.database.db import engine
+        with Session(engine) as session:
+            row = session.get(AppSetting, "app_language")
+            if row and row.value:
+                lang = row.value
+    except Exception:
+        pass
+    return lang
+
+
+def _get_watering_state(active_zones: list[dict], rain_blocked: bool,
+                        frost_blocked: bool, lang: str) -> tuple[str, str]:
+    machine_state = (
+        "active" if active_zones else
+        ("rain_blocked" if rain_blocked else
+         ("frost_protection" if frost_blocked else "inactive"))
+    )
+    labels = STATUS_LABELS.get(lang, STATUS_LABELS["en"])
+    active_zone_name = active_zones[0]["zone_name"] if active_zones else None
+    if machine_state == "active" and active_zone_name:
+        return machine_state, f"{labels['active']} - {active_zone_name}"
+    return machine_state, labels[machine_state]
+
+
 async def publish_once():
     if not settings.ha_token:
         return
@@ -44,6 +90,8 @@ async def publish_once():
     rain_blocked = skip in (SkipReason.rain,)
     frost_blocked = skip in (SkipReason.frost,)
 
+    lang = _get_language()
+
     from sqlmodel import Session, select
     from backend.database.db import engine
     from backend.models import Schedule
@@ -55,6 +103,9 @@ async def publish_once():
         next_run = min(runs)
 
     active_zone = active_zones[0] if active_zones else None
+    machine_state, display_state = _get_watering_state(
+        active_zones, rain_blocked, frost_blocked, lang
+    )
 
     entities = [
         ("binary_sensor.irrigation_bss_watering", "on" if any_watering else "off", {
@@ -63,6 +114,20 @@ async def publish_once():
             "icon": "mdi:sprinkler-variant",
             "integration": "irrigation_bss",
         }),
+        ("sensor.irrigation_bss_watering_status",
+         display_state,
+         {
+             "friendly_name": STATUS_LABELS.get(lang, STATUS_LABELS["en"])["friendly_name"],
+             "icon": "mdi:information-outline",
+             "integration": "irrigation_bss",
+             "status_reason": skip.value if skip else None,
+             "state_value": machine_state,
+             "active": any_watering,
+             "active_zone": active_zone["zone_name"] if active_zone else None,
+             "remaining_sec": active_zone["remaining_sec"] if active_zone else 0,
+             "next_run": next_run or None,
+             "status_text": display_state,
+         }),
         ("sensor.irrigation_bss_active_zone", active_zone["zone_name"] if active_zone else "idle", {
             "friendly_name": "Irrigation BSS — Active Zone",
             "icon": "mdi:layers",
