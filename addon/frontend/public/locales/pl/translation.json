@@ -150,6 +150,8 @@
     "skipIfSoil": "Pomiń przy mokrej glebie",
     "skipIfFrost": "Pomiń przy mrozie",
     "nextRun": "Następne uruchomienie",
+    "countdown": "za {{h}}h {{m}}min {{s}}s",
+    "countdownShort": "za {{m}}min {{s}}s",
     "skippedDueToRain": "pominięte z powodu deszczu",
     "days": {
       "mon": "Pon",
@@ -226,5 +228,13 @@
     "presetOcean": "Ocean (Niebieska)",
     "presetSunset": "Zachód słońca (Pomarańczowa)",
     "presetViolet": "Fioletowa"
+  },
+  "status": {
+    "active": "Aktywne",
+    "rainBlocked": "Zablokowane - deszcz",
+    "rainTodayBlocked": "Zablokowane - padało dziś",
+    "frostProtection": "Zablokowane - mróz",
+    "inactive": "Nieaktywne",
+    "friendlyName": "Irrigation BSS — Status podlewania"
   }
 }

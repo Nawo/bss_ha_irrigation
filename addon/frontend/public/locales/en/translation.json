@@ -150,6 +150,8 @@
     "skipIfSoil": "Skip if soil is wet",
     "skipIfFrost": "Skip if frost",
     "nextRun": "Next run",
+    "countdown": "in {{h}}h {{m}}min {{s}}s",
+    "countdownShort": "in {{m}}min {{s}}s",
     "skippedDueToRain": "skipped due to rain",
     "days": {
       "mon": "Mon",
@@ -226,5 +228,13 @@
     "presetOcean": "Ocean (Blue)",
     "presetSunset": "Sunset (Orange)",
     "presetViolet": "Violet"
+  },
+  "status": {
+    "active": "Active",
+    "rainBlocked": "Blocked - rain",
+    "rainTodayBlocked": "Blocked - rained today",
+    "frostProtection": "Blocked - frost",
+    "inactive": "Inactive",
+    "friendlyName": "Irrigation BSS — Watering Status"
   }
 }

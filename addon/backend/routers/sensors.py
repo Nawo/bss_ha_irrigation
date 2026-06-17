@@ -5,12 +5,11 @@ from datetime import datetime, timezone
 
 from backend.database.db import get_session
 from backend.models import Sensor, SensorCreate, SensorUpdate, SensorRead, SensorType
+from backend.constants import RAIN_WEATHER_STATES
 from backend.services import ha_client
 from backend.services.irrigation import _active
 
 router = APIRouter(prefix="/api/sensors", tags=["sensors"])
-
-_RAIN_STATES = {"rainy", "pouring", "snowy", "snowy-rainy", "lightning-rainy", "hail"}
 
 
 async def _enrich(sensor: Sensor) -> SensorRead:
@@ -46,14 +45,14 @@ async def _enrich(sensor: Sensor) -> SensorRead:
             except (ValueError, TypeError):
                 pass
         elif sensor.sensor_type == SensorType.weather:
-            sr.is_blocking = val.strip().lower() in _RAIN_STATES
+            sr.is_blocking = val.strip().lower() in RAIN_WEATHER_STATES
             if sensor.skip_if_rained_today:
                 local_now = datetime.now().astimezone()
                 local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
                 utc_midnight = local_midnight.astimezone(timezone.utc).replace(tzinfo=None)
                 history = await ha_client.get_history(sensor.entity_id, utc_midnight)
-                sr.rained_today = val.strip().lower() in _RAIN_STATES or any(
-                    str(h.get("state")).strip().lower() in _RAIN_STATES
+                sr.rained_today = val.strip().lower() in RAIN_WEATHER_STATES or any(
+                    str(h.get("state")).strip().lower() in RAIN_WEATHER_STATES
                     for h in history if h
                 )
                 if sr.rained_today:

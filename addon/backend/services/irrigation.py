@@ -18,6 +18,7 @@ from backend.models import (
     ActiveWateringState,
 )
 from backend.services import ha_client
+from backend.constants import RAIN_WEATHER_STATES
 
 logger = logging.getLogger(__name__)
 
@@ -289,7 +290,6 @@ async def check_sensors_blocking(
     - weather:     state string. Blocks on precipitation conditions (rainy/pouring/snowy/
                    lightning-rainy) when skip_if_rain is True.
     """
-    _RAIN_WEATHER_STATES = {"rainy", "pouring", "snowy", "snowy-rainy", "lightning-rainy", "hail"}
 
     with Session(engine) as session:
         sensors = session.exec(select(Sensor).where(Sensor.enabled == True)).all()
@@ -350,7 +350,7 @@ async def check_sensors_blocking(
                     pass
 
         elif sensor.sensor_type == SensorType.weather:
-            if skip_if_rain and val in _RAIN_WEATHER_STATES:
+            if skip_if_rain and val in RAIN_WEATHER_STATES:
                 logger.info(f"Sensor block: weather entity {sensor.entity_id} state={val}")
                 return SkipReason.rain
             if sensor.skip_if_rained_today:
@@ -359,8 +359,8 @@ async def check_sensors_blocking(
                 # Convert local midnight to UTC for HA API
                 utc_midnight = local_midnight.astimezone(timezone.utc).replace(tzinfo=None)
                 history = await ha_client.get_history(sensor.entity_id, utc_midnight)
-                if val in _RAIN_WEATHER_STATES or any(
-                    str(h.get("state")).strip().lower() in _RAIN_WEATHER_STATES
+                if val in RAIN_WEATHER_STATES or any(
+                    str(h.get("state")).strip().lower() in RAIN_WEATHER_STATES
                     for h in history if h
                 ):
                     logger.info(f"Sensor block: weather entity {sensor.entity_id} detected rain today")

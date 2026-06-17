@@ -151,6 +151,8 @@
     "skipIfSoil": "Bei feuchtem Boden überspringen",
     "skipIfFrost": "Bei Frost überspringen",
     "nextRun": "Nächste Ausführung",
+    "countdown": "in {{h}}h {{m}}min {{s}}s",
+    "countdownShort": "in {{m}}min {{s}}s",
     "skippedDueToRain": "wegen Regen übersprungen",
     "days": {
       "mon": "Mo",
@@ -227,5 +229,13 @@
     "presetOcean": "Ozean (Blau)",
     "presetSunset": "Sonnenuntergang (Orange)",
     "presetViolet": "Violett"
+  },
+  "status": {
+    "active": "Aktiv",
+    "rainBlocked": "Blockiert - Regen",
+    "rainTodayBlocked": "Blockiert - heute geregnet",
+    "frostProtection": "Blockiert - Frost",
+    "inactive": "Inaktiv",
+    "friendlyName": "Irrigation BSS — Bewässerungsstatus"
   }
 }

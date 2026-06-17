@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Pencil, Trash2, CalendarDays } from 'lucide-react'
+import { Plus, Pencil, Trash2, CalendarDays, Timer } from 'lucide-react'
 import { schedulesApi } from '../api/schedules'
 import { zonesApi } from '../api/zones'
 import type { Schedule, Zone, WateringMode } from '../types'
@@ -10,6 +10,7 @@ import StatusBadge from '../components/common/StatusBadge'
 
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const
 const DAY_BITS = [0, 1, 2, 3, 4, 5, 6]
+const SCHEDULE_REFRESH_INTERVAL = 30_000 // 30s
 
 function weekdaysFromBitmask(mask: number): boolean[] {
   return DAY_BITS.map(i => !!(mask & (1 << i)))
@@ -18,6 +19,60 @@ function bitmaskFromWeekdays(days: boolean[]): number {
   return days.reduce((acc, v, i) => v ? acc | (1 << i) : acc, 0)
 }
 
+// ---------------------------------------------------------------------------
+// useCountdown — returns live { h, m, s } from now until target ISO datetime
+// ---------------------------------------------------------------------------
+function useCountdown(isoTarget?: string) {
+  const [remaining, setRemaining] = useState<{ h: number; m: number; s: number } | null>(null)
+
+  useEffect(() => {
+    if (!isoTarget) { setRemaining(null); return }
+
+    const calc = () => {
+      const diff = new Date(isoTarget).getTime() - Date.now()
+      if (diff <= 0) return null
+      const totalSec = Math.floor(diff / 1000)
+      return {
+        h: Math.floor(totalSec / 3600),
+        m: Math.floor((totalSec % 3600) / 60),
+        s: totalSec % 60,
+      }
+    }
+
+    setRemaining(calc())
+    const id = setInterval(() => {
+      const r = calc()
+      setRemaining(r)
+      if (!r) clearInterval(id)
+    }, 1000)
+    return () => clearInterval(id)
+  }, [isoTarget])
+
+  return remaining
+}
+
+// ---------------------------------------------------------------------------
+// CountdownDisplay — renders a single live countdown badge
+// ---------------------------------------------------------------------------
+function CountdownDisplay({ isoTarget }: { isoTarget?: string }) {
+  const { t } = useTranslation()
+  const cd = useCountdown(isoTarget)
+  if (!cd) return null
+
+  const text = cd.h > 0
+    ? t('schedule.countdown', { h: cd.h, m: String(cd.m).padStart(2, '0'), s: String(cd.s).padStart(2, '0') })
+    : t('schedule.countdownShort', { m: cd.m, s: String(cd.s).padStart(2, '0') })
+
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-primary-400 font-mono">
+      <Timer size={11} />{text}
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// ScheduleForm
+// ---------------------------------------------------------------------------
 function ScheduleForm({ initial, zones, onSave, onCancel }: {
   initial?: Partial<Schedule>; zones: Zone[]
   onSave: (data: Partial<Schedule>) => Promise<void>; onCancel: () => void
@@ -49,7 +104,6 @@ function ScheduleForm({ initial, zones, onSave, onCancel }: {
   const toggleZone = (zoneId: number) => {
     setSelectedZoneIds(prev => {
       if (prev.includes(zoneId)) {
-        // At least one zone must be selected
         if (prev.length === 1) return prev
         return prev.filter(id => id !== zoneId)
       } else {
@@ -153,6 +207,9 @@ function ScheduleForm({ initial, zones, onSave, onCancel }: {
   )
 }
 
+// ---------------------------------------------------------------------------
+// SchedulePage
+// ---------------------------------------------------------------------------
 export default function SchedulePage() {
   const { t } = useTranslation()
   const [schedules, setSchedules] = useState<Schedule[]>([])
@@ -162,11 +219,20 @@ export default function SchedulePage() {
   const [selected, setSelected] = useState<Schedule | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Schedule | null>(null)
 
-  const load = () => Promise.all([
+  const load = useCallback(() => Promise.all([
     schedulesApi.list().then(setSchedules),
     zonesApi.list().then(setZones),
-  ]).finally(() => setLoading(false))
-  useEffect(() => { load() }, [])
+  ]).finally(() => setLoading(false)), [])
+
+  useEffect(() => { load() }, [load])
+
+  // Periodic refresh to keep next_run fresh
+  useEffect(() => {
+    const id = setInterval(() => {
+      schedulesApi.list().then(setSchedules).catch(() => {})
+    }, SCHEDULE_REFRESH_INTERVAL)
+    return () => clearInterval(id)
+  }, [])
 
   const save = async (data: Partial<Schedule>) => {
     if (selected) await schedulesApi.update(selected.id, data)
@@ -235,11 +301,20 @@ export default function SchedulePage() {
                 <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded">{t(`schedule.modes.${sch.mode}`).split(' ')[0]}</span>
                 {!sch.enabled && <StatusBadge variant="gray">{t('common.disabled')}</StatusBadge>}
               </div>
+
+              {/* Next run + live countdown */}
               {sch.next_run && (
-                <p className="text-xs text-gray-600 mt-2">
-                  {t('schedule.nextRun')}: {new Date(sch.next_run).toLocaleString()}
-                </p>
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-gray-600">
+                    {t('schedule.nextRun')}: {new Date(sch.next_run).toLocaleString()}
+                  </p>
+                  <CountdownDisplay isoTarget={sch.next_run} />
+                  {sch.next_run_will_be_skipped && (
+                    <StatusBadge variant="red">{t('schedule.skippedDueToRain')}</StatusBadge>
+                  )}
+                </div>
               )}
+
               <div className="flex gap-1 mt-2">
                 {sch.skip_if_rain && <span className="text-xs text-blue-600" title="Skip if rain">🌧</span>}
                 {sch.skip_if_soil_wet && <span className="text-xs text-green-700" title="Skip if soil wet">💧</span>}
