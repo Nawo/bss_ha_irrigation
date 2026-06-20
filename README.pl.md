@@ -16,7 +16,7 @@ Główne funkcje:
 - Sekcje nawadniania z przypisanymi zaworami
 - Tygodniowy harmonogram z sekwencyjnym uruchamianiem wielu sekcji
 - Ręczny szybki start z własnym czasem trwania
-- Czujniki blokujące (deszcz, wilgotność gleby, mróz, przepływomierz, encja pogodowa)
+- Czujniki blokujące (deszcz, wilgotność gleby, mróz, przepływomierz)
 - Per-harmonogram flagi pomijania (pomiń jeśli deszcz / mokra gleba / mróz)
 - Integracja z pogodą
 - Dashboard na żywo z aktywnym podlewaniem i pozostałym czasem
@@ -42,7 +42,7 @@ Używaj tego na osobnej testowej instancji Home Assistant.
 
 1. **Zawory**: dodaj encje HA (switch / input_boolean).
 2. **Sekcje**: utwórz sekcje i przypisz zawory.
-3. **Czujniki** (opcjonalnie): deszcz, wilgotność gleby, mróz, przepływomierz, encja pogodowa.
+3. **Czujniki** (opcjonalnie): deszcz, wilgotność gleby, mróz, przepływomierz.
 4. **Harmonogram**: skonfiguruj dni tygodnia, godziny startu, czasy trwania i opcjonalne dodatkowe sekcje.
 5. **Dashboard**: monitoruj status i uruchamiaj ręczne szybkie akcje.
 

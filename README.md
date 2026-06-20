@@ -1,4 +1,4 @@
-﻿# Irrigation BSS
+# Irrigation BSS
 
 🇬🇧 English | [🇵🇱 Polski](README.pl.md)
 
@@ -16,7 +16,7 @@ Key capabilities:
 - Watering sections with assigned valves
 - Weekly scheduler with multi-zone sequential runs
 - Manual quick start with custom duration
-- Blocking sensors (rain, soil moisture, frost, flow meter, weather entity)
+- Blocking sensors (rain, soil moisture, frost, flow meter)
 - Per-schedule sensor skip flags (skip if rain / soil wet / frost)
 - Weather integration
 - Live dashboard with active watering and remaining time
@@ -42,7 +42,7 @@ Use this on a separate test Home Assistant instance.
 
 1. **Valves**: add HA entities (switch / input_boolean).
 2. **Sections**: create sections and assign valves.
-3. **Sensors** (optional): rain, soil moisture, frost, flow meter, weather entity.
+3. **Sensors** (optional): rain, soil moisture, frost, flow meter.
 4. **Schedule**: configure weekdays, start times, durations, and optional additional sections.
 5. **Dashboard**: monitor status and run manual quick actions.
 

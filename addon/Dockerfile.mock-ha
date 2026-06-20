@@ -1,9 +1,0 @@
-FROM python:3.11-slim
-
-WORKDIR /app
-
-RUN pip install flask==3.0.0
-
-COPY test_mock_ha.py .
-
-CMD ["python", "test_mock_ha.py"]

@@ -35,7 +35,6 @@ Go to **Sensors** to add:
 - **Soil moisture** — skips when soil is wet above a threshold
 - **Temperature** — frost protection (skips below 2 °C by default)
 - **Flow meter** — monitors water usage
-- **Weather** — forecast-based skip via HA weather entity
 
 ### 4. Set a schedule
 Go to **Schedule** and create a schedule for each zone — choose days of the week, start time, duration and watering mode (sequential or parallel).
