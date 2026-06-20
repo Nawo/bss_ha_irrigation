@@ -20,8 +20,6 @@ export default function WeatherPage() {
   const [lat, setLat] = useState('')
   const [lon, setLon] = useState('')
   const [source, setSource] = useState<'ha' | 'openmeteo'>('ha')
-  const [skipRaining, setSkipRaining] = useState(false)
-  const [skipRainedToday, setSkipRainedToday] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const ready = useRef(false)
 
@@ -32,41 +30,31 @@ export default function WeatherPage() {
       if (cfg['weather_entity']) setEntityId(cfg['weather_entity'] ?? '')
       if (cfg['weather_lat']) setLat(cfg['weather_lat'] ?? '')
       if (cfg['weather_lon']) setLon(cfg['weather_lon'] ?? '')
-      if (cfg['weather_skip_if_raining']) setSkipRaining(cfg['weather_skip_if_raining'] === 'true')
-      if (cfg['weather_skip_if_rained_today']) setSkipRainedToday(cfg['weather_skip_if_rained_today'] === 'true')
       ready.current = true
     }).catch(() => { ready.current = true })
   }, [])
 
-  const saveSettings = (s: 'ha' | 'openmeteo', eid: string, la: string, lo: string, skipR: boolean, skipRT: boolean) => {
+  const saveSettings = (s: 'ha' | 'openmeteo', eid: string, la: string, lo: string) => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
       settingsApi.set('weather_source', s)
       settingsApi.set('weather_entity', eid || null)
       settingsApi.set('weather_lat', la || null)
       settingsApi.set('weather_lon', lo || null)
-      settingsApi.set('weather_skip_if_raining', skipR ? 'true' : 'false')
-      settingsApi.set('weather_skip_if_rained_today', skipRT ? 'true' : 'false')
     }, 600)
   }
 
   const setSourceAndSave = (s: 'ha' | 'openmeteo') => {
-    setSource(s); saveSettings(s, entityId, lat, lon, skipRaining, skipRainedToday)
+    setSource(s); saveSettings(s, entityId, lat, lon)
   }
   const setEntityAndSave = (v: string) => {
-    setEntityId(v); saveSettings(source, v, lat, lon, skipRaining, skipRainedToday)
+    setEntityId(v); saveSettings(source, v, lat, lon)
   }
   const setLatAndSave = (v: string) => {
-    setLat(v); saveSettings(source, entityId, v, lon, skipRaining, skipRainedToday)
+    setLat(v); saveSettings(source, entityId, v, lon)
   }
   const setLonAndSave = (v: string) => {
-    setLon(v); saveSettings(source, entityId, lat, v, skipRaining, skipRainedToday)
-  }
-  const setSkipRainingAndSave = (v: boolean) => {
-    setSkipRaining(v); saveSettings(source, entityId, lat, lon, v, skipRainedToday)
-  }
-  const setSkipRainedTodayAndSave = (v: boolean) => {
-    setSkipRainedToday(v); saveSettings(source, entityId, lat, lon, skipRaining, v)
+    setLon(v); saveSettings(source, entityId, lat, v)
   }
 
   const handleUseHaLocation = async () => {
@@ -74,7 +62,7 @@ export default function WeatherPage() {
       const loc = await haEntitiesApi.location()
       setLat(String(loc.latitude))
       setLon(String(loc.longitude))
-      saveSettings(source, entityId, String(loc.latitude), String(loc.longitude), skipRaining, skipRainedToday)
+      saveSettings(source, entityId, String(loc.latitude), String(loc.longitude))
     } catch (e) {
       console.error('Failed to get HA location', e)
     }
@@ -149,22 +137,6 @@ export default function WeatherPage() {
           </div>
         )}
 
-        <div className="space-y-2 border border-gray-200 dark:border-gray-800 rounded-lg p-3">
-          <div className="flex items-center gap-2">
-            <input type="checkbox" id="skip-raining" checked={skipRaining}
-              onChange={e => setSkipRainingAndSave(e.target.checked)} className="w-4 h-4 accent-primary-500" />
-            <label htmlFor="skip-raining" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t('weather.skipIfRaining')}
-            </label>
-          </div>
-          <div className="flex items-center gap-2">
-            <input type="checkbox" id="skip-rained-today" checked={skipRainedToday}
-              onChange={e => setSkipRainedTodayAndSave(e.target.checked)} className="w-4 h-4 accent-primary-500" />
-            <label htmlFor="skip-rained-today" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {t('weather.skipIfRainedToday')}
-            </label>
-          </div>
-        </div>
 
         <button onClick={refresh} disabled={loading}
           className="btn-secondary btn-sm flex items-center gap-2">

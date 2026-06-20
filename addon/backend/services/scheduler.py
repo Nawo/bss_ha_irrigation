@@ -33,7 +33,8 @@ async def _fire_schedule(schedule_id: int):
         zone_ids = schedule_zone_ids(schedule)
         zone = session.get(Zone, schedule.zone_id)
         zone_name = zone.name if zone else "Unknown"
-        skip_if_rain = schedule.skip_if_rain
+        skip_if_raining = schedule.skip_if_raining
+        skip_if_rained_today = schedule.skip_if_rained_today
         skip_if_soil_wet = schedule.skip_if_soil_wet
         skip_if_frost = schedule.skip_if_frost
         duration_override = schedule.duration_override_min
@@ -51,7 +52,8 @@ async def _fire_schedule(schedule_id: int):
                 zone_id=zid,
                 duration_min=duration_override,
                 triggered_by=TriggerSource.schedule,
-                skip_if_rain=skip_if_rain,
+                skip_if_raining=skip_if_raining,
+                skip_if_rained_today=skip_if_rained_today,
                 skip_if_soil_wet=skip_if_soil_wet,
                 skip_if_frost=skip_if_frost,
             )
@@ -74,7 +76,8 @@ async def _fire_schedule(schedule_id: int):
             zone_id=zone_ids[0],
             duration_min=duration_override,
             triggered_by=TriggerSource.schedule,
-            skip_if_rain=skip_if_rain,
+            skip_if_raining=skip_if_raining,
+            skip_if_rained_today=skip_if_rained_today,
             skip_if_soil_wet=skip_if_soil_wet,
             skip_if_frost=skip_if_frost,
         )

@@ -1,6 +1,6 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
 
 from backend.database.db import get_session
 from backend.models import Zone, ZoneCreate, ZoneUpdate, ZoneRead, Valve
@@ -11,12 +11,12 @@ router = APIRouter(prefix="/api/zones", tags=["zones"])
 
 @router.get("", response_model=List[ZoneRead])
 def list_zones(session: Session = Depends(get_session)):
-    zones = session.exec(select(Zone)).all()
+    stmt = select(Zone, func.count(Valve.id)).join(Valve, Valve.zone_id == Zone.id, isouter=True).group_by(Zone.id)
+    rows = session.exec(stmt).all()
     result = []
-    for z in zones:
-        valve_count = len(session.exec(select(Valve).where(Valve.zone_id == z.id)).all())
+    for z, count in rows:
         zr = ZoneRead.model_validate(z)
-        zr.valve_count = valve_count
+        zr.valve_count = count
         zr.is_watering = irrigation.is_watering(z.id)
         result.append(zr)
     return result
@@ -38,7 +38,7 @@ def get_zone(zone_id: int, session: Session = Depends(get_session)):
     zone = session.get(Zone, zone_id)
     if not zone:
         raise HTTPException(404, "Zone not found")
-    valve_count = len(session.exec(select(Valve).where(Valve.zone_id == zone_id)).all())
+    valve_count = session.exec(select(func.count(Valve.id)).where(Valve.zone_id == zone_id)).one()
     zr = ZoneRead.model_validate(zone)
     zr.valve_count = valve_count
     zr.is_watering = irrigation.is_watering(zone_id)
@@ -55,7 +55,7 @@ def update_zone(zone_id: int, zone_in: ZoneUpdate, session: Session = Depends(ge
     session.add(zone)
     session.commit()
     session.refresh(zone)
-    valve_count = len(session.exec(select(Valve).where(Valve.zone_id == zone_id)).all())
+    valve_count = session.exec(select(func.count(Valve.id)).where(Valve.zone_id == zone_id)).one()
     zr = ZoneRead.model_validate(zone)
     zr.valve_count = valve_count
     zr.is_watering = irrigation.is_watering(zone_id)

@@ -38,7 +38,7 @@ function ScheduleForm({ initial, zones, onSave, onCancel }: {
   const [form, setForm] = useState<Partial<Schedule>>({
     zone_id: initialZoneIds[0], weekdays: 0b1111111, start_time: '07:00',
     duration_override_min: undefined, mode: 'sequential', enabled: true,
-    skip_if_rain: true, skip_if_soil_wet: true, skip_if_frost: true,
+    skip_if_raining: true, skip_if_rained_today: true, skip_if_soil_wet: true, skip_if_frost: true,
     ...initial,
   })
   const [days, setDays] = useState<boolean[]>(weekdaysFromBitmask(form.weekdays ?? 0b1111111))
@@ -131,9 +131,10 @@ function ScheduleForm({ initial, zones, onSave, onCancel }: {
         </select>
       </div>
       <div className="space-y-2 border border-gray-200 dark:border-gray-800 rounded-lg p-3">
-        <p className="text-xs text-gray-500 mb-2">Skip conditions</p>
+        <p className="text-xs text-gray-500 mb-2">{t('schedule.skipConditions')}</p>
         {([
-          { key: 'skip_if_rain', label: 'skipIfRain' },
+          { key: 'skip_if_raining', label: 'skipIfRaining' },
+          { key: 'skip_if_rained_today', label: 'skipIfRainedToday' },
           { key: 'skip_if_soil_wet', label: 'skipIfSoil' },
           { key: 'skip_if_frost', label: 'skipIfFrost' },
         ] as const).map(({ key, label }) => (
@@ -268,7 +269,7 @@ export default function SchedulePage() {
               )}
 
               <div className="flex gap-1 mt-2">
-                {sch.skip_if_rain && <span className="text-xs text-blue-600" title="Skip if rain">🌧</span>}
+                {sch.skip_if_raining && <span className="text-xs text-blue-600" title="Skip if raining">🌧</span>}
                 {sch.skip_if_soil_wet && <span className="text-xs text-green-700" title="Skip if soil wet">💧</span>}
                 {sch.skip_if_frost && <span className="text-xs text-blue-400" title="Skip if frost">❄️</span>}
               </div>

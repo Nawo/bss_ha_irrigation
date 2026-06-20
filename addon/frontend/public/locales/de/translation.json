@@ -144,8 +144,9 @@
       "sequential": "Sequenziell (einer nach dem anderen)",
       "parallel": "Parallel (alle gleichzeitig)"
     },
-    "skipIfRain": "Bei Regen überspringen",
-    "skipIfRainedToday": "Ueberspringen, wenn es heute geregnet hat",
+    "skipConditions": "Überspringbedingungen",
+    "skipIfRaining": "Bei Regen überspringen",
+    "skipIfRainedToday": "Überspringen, wenn es heute geregnet hat",
     "skipIfSoil": "Bei feuchtem Boden überspringen",
     "skipIfFrost": "Bei Frost überspringen",
     "nextRun": "Nächste Ausführung",

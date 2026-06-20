@@ -17,7 +17,7 @@ from backend.models import (
     AppSetting,
     ActiveWateringState,
 )
-from backend.services import ha_client
+from backend.services import ha_client, weather as weather_service
 from backend.constants import RAIN_WEATHER_STATES
 
 logger = logging.getLogger(__name__)
@@ -55,21 +55,19 @@ def _normalize_dt(value) -> Optional[datetime]:
     return value
 
 
-def _get_main_valve_entity() -> Optional[str]:
+def _get_main_valve_entity(session: Session) -> Optional[str]:
     try:
-        with Session(engine) as session:
-            row = session.get(AppSetting, "main_valve_entity_id")
-            return row.value if row and row.value else None
+        row = session.get(AppSetting, "main_valve_entity_id")
+        return row.value if row and row.value else None
     except Exception as e:
         logger.warning(f"Cannot read main valve setting: {e}")
         return None
 
 
-def _get_pump_entity() -> Optional[str]:
+def _get_pump_entity(session: Session) -> Optional[str]:
     try:
-        with Session(engine) as session:
-            row = session.get(AppSetting, "pump_entity_id")
-            return row.value if row and row.value else None
+        row = session.get(AppSetting, "pump_entity_id")
+        return row.value if row and row.value else None
     except Exception as e:
         logger.warning(f"Cannot read pump setting: {e}")
         return None
@@ -189,7 +187,10 @@ async def recover_active_watering() -> dict:
             continue
 
         if len(_active) == 0:
-            main_valve = _get_main_valve_entity()
+            with Session(engine) as session:
+                main_valve = _get_main_valve_entity(session)
+                pump_valve = _get_pump_entity(session)
+
             if main_valve:
                 try:
                     if not await _is_entity_on(main_valve):
@@ -198,7 +199,6 @@ async def recover_active_watering() -> dict:
                 except Exception as e:
                     logger.warning(f"Main valve reopen failed ({main_valve}): {e}")
 
-            pump_valve = _get_pump_entity()
             if pump_valve:
                 try:
                     if not await _is_entity_on(pump_valve):
@@ -271,7 +271,8 @@ def get_active_zones() -> List[dict]:
 
 
 async def check_sensors_blocking(
-    skip_if_rain: bool = True,
+    skip_if_raining: bool = True,
+    skip_if_rained_today: bool = True,
     skip_if_soil_wet: bool = True,
     skip_if_frost: bool = True,
 ) -> Optional[SkipReason]:
@@ -305,10 +306,10 @@ async def check_sensors_blocking(
             continue
 
         if sensor.sensor_type == SensorType.rain:
-            if skip_if_rain and val == "on":
+            if skip_if_raining and val == "on":
                 logger.info(f"Sensor block: rain sensor {sensor.entity_id} is ON")
                 return SkipReason.rain
-            if sensor.skip_if_rained_today:
+            if skip_if_rained_today:
                 local_now = datetime.now().astimezone()
                 local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
                 utc_midnight = local_midnight.astimezone(timezone.utc).replace(tzinfo=None)
@@ -323,7 +324,8 @@ async def check_sensors_blocking(
                     logger.info(f"Sensor block: temperature {sensor.entity_id} = {val} below threshold")
                     return SkipReason.frost
             except (ValueError, TypeError):
-                pass
+                logger.warning(f"Sensor block: temperature {sensor.entity_id} has invalid numeric value '{val}', applying fail-safe block")
+                return SkipReason.ha_unavailable
 
         elif sensor.sensor_type == SensorType.soil and skip_if_soil_wet:
             try:
@@ -332,7 +334,8 @@ async def check_sensors_blocking(
                     logger.info(f"Sensor block: soil moisture {sensor.entity_id} = {val}% above {threshold}%")
                     return SkipReason.soil_wet
             except (ValueError, TypeError):
-                pass
+                logger.warning(f"Sensor block: soil moisture {sensor.entity_id} has invalid numeric value '{val}', applying fail-safe block")
+                return SkipReason.ha_unavailable
 
         elif sensor.sensor_type == SensorType.flow:
             if len(_active) == 0:
@@ -345,68 +348,48 @@ async def check_sensors_blocking(
                         )
                         return SkipReason.flow_detected
                 except (ValueError, TypeError):
-                    pass
+                    logger.warning(f"Sensor block: flow meter {sensor.entity_id} has invalid numeric value '{val}', applying fail-safe block")
+                    return SkipReason.ha_unavailable
 
-    # Check weather blocking from Weather tab settings
-    if skip_if_rain:
-        weather_skip = await _check_weather_blocking()
+    # Check weather blocking using parameters (ignoring old global AppSettings)
+    if skip_if_raining or skip_if_rained_today:
+        weather_skip = await _check_weather_blocking(skip_if_raining, skip_if_rained_today)
         if weather_skip:
             return weather_skip
 
     return None
 
 
-async def _check_weather_blocking() -> Optional[SkipReason]:
+async def _check_weather_blocking(skip_if_raining: bool, skip_if_rained_today: bool) -> Optional[SkipReason]:
     """
     Check weather blocking using the entity configured in the Weather tab (AppSettings).
-
-    Reads settings:
-    - weather_source: 'ha' or 'openmeteo'
-    - weather_entity: entity_id of the HA weather entity
-    - weather_skip_if_raining: block if currently raining
-    - weather_skip_if_rained_today: block if it rained today
+    Evaluates weather based on the schedule's requested skips.
     """
     with Session(engine) as session:
         rows = session.exec(select(AppSetting)).all()
-        cfg = {r.key: r.value for r in rows}
+        settings_dict = {r.key: r.value for r in rows}
 
-    source = cfg.get("weather_source", "")
-    entity_id = cfg.get("weather_entity", "")
-    skip_raining = cfg.get("weather_skip_if_raining", "false") == "true"
-    skip_rained_today = cfg.get("weather_skip_if_rained_today", "false") == "true"
+    weather_source = settings_dict.get("weather_source", "openmeteo")
+    weather_entity = settings_dict.get("weather_entity")
+    weather_lat = settings_dict.get("weather_lat")
+    weather_lon = settings_dict.get("weather_lon")
 
-    if not skip_raining and not skip_rained_today:
+    lat = float(weather_lat) if weather_lat else None
+    lon = float(weather_lon) if weather_lon else None
+
+    try:
+        weather_data = await weather_service.get_forecast(weather_entity, lat, lon)
+    except Exception as e:
+        logger.warning(f"Failed to fetch weather forecast: {e}")
         return None
 
-    # Only HA entity source supports real-time blocking
-    if source != "ha" or not entity_id:
-        return None
-
-    state = ha_client.get_cached_state(entity_id)
-    if not state:
-        return None
-
-    val = str(state.get("state", "")).strip().lower()
-    if val in ("unknown", "unavailable", "none", ""):
-        return None
-
-    # Check current rain
-    if skip_raining and val in RAIN_WEATHER_STATES:
-        logger.info(f"Weather block: entity {entity_id} state={val} (currently raining)")
+    if skip_if_raining and weather_data.get("condition") in ("rainy", "pouring", "lightning-rainy", "lightning"):
+        logger.info(f"Weather block: current condition is {weather_data.get('condition')} (source: {weather_source})")
         return SkipReason.rain
 
-    # Check if rained today (history)
-    if skip_rained_today:
-        local_now = datetime.now().astimezone()
-        local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
-        utc_midnight = local_midnight.astimezone(timezone.utc).replace(tzinfo=None)
-        history = await ha_client.get_history(entity_id, utc_midnight)
-        if val in RAIN_WEATHER_STATES or any(
-            str(h.get("state")).strip().lower() in RAIN_WEATHER_STATES
-            for h in history if h
-        ):
-            logger.info(f"Weather block: entity {entity_id} detected rain today")
-            return SkipReason.rain
+    if skip_if_rained_today and weather_data.get("rain_expected_24h"):
+        logger.info(f"Weather block: rain expected/detected today (source: {weather_source})")
+        return SkipReason.rain
 
     return None
 
@@ -415,7 +398,8 @@ async def _check_weather_blocking() -> Optional[SkipReason]:
 async def start_zone(zone_id: int, duration_min: Optional[int] = None,
                      triggered_by: TriggerSource = TriggerSource.manual,
                      skip_sensor_check: bool = False,
-                     skip_if_rain: bool = True,
+                     skip_if_raining: bool = True,
+                     skip_if_rained_today: bool = True,
                      skip_if_soil_wet: bool = True,
                      skip_if_frost: bool = True) -> dict:
     with Session(engine) as session:
@@ -439,7 +423,8 @@ async def start_zone(zone_id: int, duration_min: Optional[int] = None,
 
     if not skip_sensor_check:
         skip = await check_sensors_blocking(
-            skip_if_rain=skip_if_rain,
+            skip_if_raining=skip_if_raining,
+            skip_if_rained_today=skip_if_rained_today,
             skip_if_soil_wet=skip_if_soil_wet,
             skip_if_frost=skip_if_frost,
         )
@@ -451,7 +436,10 @@ async def start_zone(zone_id: int, duration_min: Optional[int] = None,
         return {"ok": False, "error": "Zone already watering"}
 
     if len(_active) == 0:
-        main_valve = _get_main_valve_entity()
+        with Session(engine) as session:
+            main_valve = _get_main_valve_entity(session)
+            pump_valve = _get_pump_entity(session)
+
         if main_valve:
             try:
                 await ha_client.turn_on(main_valve)
@@ -459,7 +447,6 @@ async def start_zone(zone_id: int, duration_min: Optional[int] = None,
             except Exception as e:
                 logger.warning(f"Main valve open failed ({main_valve}): {e}")
 
-        pump_valve = _get_pump_entity()
         if pump_valve:
             try:
                 await ha_client.turn_on(pump_valve)
@@ -563,7 +550,10 @@ async def _finish_zone(zone_id: int, info: dict, reason: str,
     _delete_active_state(zone_id)
 
     if len(_active) == 0:
-        main_valve = _get_main_valve_entity()
+        with Session(engine) as session:
+            main_valve = _get_main_valve_entity(session)
+            pump_valve = _get_pump_entity(session)
+
         if main_valve:
             try:
                 await ha_client.turn_off(main_valve)
@@ -571,7 +561,6 @@ async def _finish_zone(zone_id: int, info: dict, reason: str,
             except Exception as e:
                 logger.warning(f"Main valve close failed ({main_valve}): {e}")
 
-        pump_valve = _get_pump_entity()
         if pump_valve:
             try:
                 await ha_client.turn_off(pump_valve)

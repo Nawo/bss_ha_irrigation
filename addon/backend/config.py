@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     data_dir: str = os.getenv("DATA_DIR", "./data")
     static_dir: str = os.getenv("STATIC_DIR", "./frontend/dist")
     db_path: str = ""
+    mock_ha: bool = os.getenv("MOCK_HA", "0").lower() in ("1", "true", "yes")
 
     def model_post_init(self, __context) -> None:
         if not self.db_path:

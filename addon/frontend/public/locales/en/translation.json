@@ -144,7 +144,9 @@
       "sequential": "Sequential (one at a time)",
       "parallel": "Parallel (all at once)"
     },
-    "skipIfRain": "Skip if raining",
+    "skipConditions": "Skip conditions",
+    "skipIfRaining": "Skip if currently raining",
+    "skipIfRainedToday": "Skip if rained today",
     "skipIfSoil": "Skip if soil is wet",
     "skipIfFrost": "Skip if frost",
     "nextRun": "Next run",

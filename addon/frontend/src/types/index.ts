@@ -50,7 +50,8 @@ export interface Schedule {
   duration_override_min?: number
   mode: WateringMode
   enabled: boolean
-  skip_if_rain: boolean
+  skip_if_raining: boolean
+  skip_if_rained_today: boolean
   skip_if_soil_wet: boolean
   skip_if_frost: boolean
   next_run?: string

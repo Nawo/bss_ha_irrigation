@@ -16,6 +16,16 @@ _state_listeners: List[Callable] = []
 _states: Dict[str, Any] = {}
 _is_connected: bool = False
 
+MOCK_ENTITIES = [
+    {"entity_id": "switch.valve_1", "state": "off", "attributes": {"friendly_name": "Wirtualny Zawór 1"}},
+    {"entity_id": "switch.valve_2", "state": "off", "attributes": {"friendly_name": "Wirtualny Zawór 2"}},
+    {"entity_id": "switch.valve_3", "state": "off", "attributes": {"friendly_name": "Wirtualny Zawór 3"}},
+    {"entity_id": "binary_sensor.rain", "state": "off", "attributes": {"friendly_name": "Wirtualny Czujnik Deszczu", "device_class": "moisture"}},
+    {"entity_id": "sensor.temp_front", "state": "25.0", "attributes": {"friendly_name": "Wirtualny Czujnik Temperatury", "unit_of_measurement": "°C", "device_class": "temperature"}},
+    {"entity_id": "weather.forecast_dom", "state": "sunny", "attributes": {"friendly_name": "Wirtualna Pogoda Dom", "temperature": 25.0, "humidity": 45}},
+    {"entity_id": "zone.home", "state": "zoning", "attributes": {"latitude": 52.2297, "longitude": 21.0122, "friendly_name": "Wirtualny Dom"}},
+]
+
 
 def _next_id() -> int:
     global _msg_id
@@ -29,6 +39,13 @@ def is_connected() -> bool:
 
 async def connect():
     global _ws, _session, _is_connected
+    if settings.mock_ha:
+        _is_connected = True
+        for ent in MOCK_ENTITIES:
+            _states[ent["entity_id"]] = ent
+        logger.info("Connected to MOCKED HA (Local testing mode)")
+        return
+
     _is_connected = False
     if _session and not _session.closed:
         try:
@@ -137,6 +154,9 @@ async def _send(payload: dict) -> dict:
 
 
 async def get_states() -> List[dict]:
+    if settings.mock_ha:
+        return list(_states.values())
+        
     url = f"{settings.ha_url}/api/states"
     headers = {"Authorization": f"Bearer {settings.ha_token}"}
     async with aiohttp.ClientSession() as s:
@@ -148,6 +168,9 @@ async def get_states() -> List[dict]:
 
 
 async def get_state(entity_id: str) -> Optional[dict]:
+    if settings.mock_ha:
+        return _states.get(entity_id)
+        
     if entity_id in _states:
         return _states[entity_id]
     url = f"{settings.ha_url}/api/states/{entity_id}"
@@ -162,6 +185,20 @@ async def get_state(entity_id: str) -> Optional[dict]:
 
 
 async def call_service(domain: str, service: str, data: dict = None) -> dict:
+    if settings.mock_ha:
+        entity_id = data.get("entity_id") if data else None
+        if entity_id and entity_id in _states:
+            if service == "turn_on":
+                _states[entity_id]["state"] = "on"
+            elif service == "turn_off":
+                _states[entity_id]["state"] = "off"
+            elif service == "toggle":
+                _states[entity_id]["state"] = "on" if _states[entity_id]["state"] == "off" else "off"
+            
+            for listener in _state_listeners:
+                asyncio.create_task(listener(entity_id, _states[entity_id]["state"]))
+        return {"success": True}
+
     return await _send({
         "type": "call_service",
         "domain": domain,
@@ -172,8 +209,23 @@ async def call_service(domain: str, service: str, data: dict = None) -> dict:
 
 async def call_service_with_response(domain: str, service: str, data: dict = None,
                                       target: dict = None) -> Optional[dict]:
-    """Call an HA service that returns data (return_response=True).
-    Used for services like weather.get_forecasts which return forecast data."""
+    """Call an HA service that returns data (return_response=True)."""
+    if settings.mock_ha:
+        if domain == "weather" and service == "get_forecasts":
+            entity_id = target.get("entity_id") if target else None
+            from datetime import datetime, timedelta
+            now = datetime.now()
+            return {
+                entity_id: {
+                    "forecast": [
+                        {"datetime": (now + timedelta(hours=1)).isoformat(), "condition": "sunny", "temperature": 26, "precipitation_probability": 0},
+                        {"datetime": (now + timedelta(hours=2)).isoformat(), "condition": "partlycloudy", "temperature": 27, "precipitation_probability": 10},
+                        {"datetime": (now + timedelta(hours=3)).isoformat(), "condition": "rainy", "temperature": 25, "precipitation_probability": 80},
+                    ]
+                }
+            }
+        return {}
+
     payload = {
         "type": "call_service",
         "domain": domain,
@@ -214,6 +266,9 @@ def get_cached_state(entity_id: str) -> Optional[dict]:
 
 
 async def get_history(entity_id: str, start_time: "datetime") -> List[dict]:
+    if settings.mock_ha:
+        return []
+
     if not settings.ha_token:
         return []
     # start_time is timezone-aware UTC datetime
@@ -225,7 +280,6 @@ async def get_history(entity_id: str, start_time: "datetime") -> List[dict]:
             async with s.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10.0)) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    # HA history returns a list of lists: [[state_obj1, state_obj2, ...]]
                     if data and isinstance(data, list) and len(data) > 0:
                         return data[0]
     except Exception as e:

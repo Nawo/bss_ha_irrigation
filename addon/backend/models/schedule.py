@@ -18,7 +18,8 @@ class ScheduleBase(SQLModel):
     duration_override_min: Optional[int] = Field(default=None, ge=1, le=240)
     mode: WateringMode = Field(default=WateringMode.sequential)
     enabled: bool = Field(default=True)
-    skip_if_rain: bool = Field(default=True)
+    skip_if_raining: bool = Field(default=True)
+    skip_if_rained_today: bool = Field(default=True)
     skip_if_soil_wet: bool = Field(default=True)
     skip_if_frost: bool = Field(default=True)
 
@@ -51,7 +52,8 @@ class ScheduleUpdate(SQLModel):
     duration_override_min: Optional[int] = Field(default=None, ge=1, le=240)
     mode: Optional[WateringMode] = None
     enabled: Optional[bool] = None
-    skip_if_rain: Optional[bool] = None
+    skip_if_raining: Optional[bool] = None
+    skip_if_rained_today: Optional[bool] = None
     skip_if_soil_wet: Optional[bool] = None
     skip_if_frost: Optional[bool] = None
 

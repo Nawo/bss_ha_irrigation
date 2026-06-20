@@ -144,7 +144,9 @@
       "sequential": "Sekwencyjny (jeden po drugim)",
       "parallel": "Równoległy (wszystkie naraz)"
     },
-    "skipIfRain": "Pomiń przy deszczu",
+    "skipConditions": "Warunki pomijania",
+    "skipIfRaining": "Pomiń, jeśli aktualnie pada",
+    "skipIfRainedToday": "Pomiń, jeśli dzisiaj padało",
     "skipIfSoil": "Pomiń przy mokrej glebie",
     "skipIfFrost": "Pomiń przy mrozie",
     "nextRun": "Następne uruchomienie",

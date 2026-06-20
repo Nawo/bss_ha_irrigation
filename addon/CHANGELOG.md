@@ -1,14 +1,25 @@
 # Changelog
 
-## 1.6
+## 2.0.0 (Nawo Fork Major Release)
 
-- New: `sensor.irrigation_bss_watering_status` publishes localized status text and active zone name (e.g. `Aktywne - Dom tył`) with machine-readable `state_value`.
-- Improved: localized watering status display now follows addon language setting (`pl`/`en`) using app configuration stored in SQLite.
-- Improved: moved `skip_if_rained_today` from schedule model to sensor model, making rain skip behavior consistent across schedules and sensors.
-- Fixed: rain-history skip computation now uses correct local-midnight to UTC conversion, preventing timezone bugs.
-- New: weather-sensor rain skip configuration checkbox in the frontend.
-- New: local Home Assistant mock environment for testing plus Docker Compose setup and unit tests.
-- New: detailed documentation for testing, implementation, and quick start.
+### ✨ New Features & UI Overhaul
+- **Granular Weather Controls**: Moved `skip_if_raining` and `skip_if_rained_today` settings from a global Weather configuration to a per-schedule configuration. You can now define precisely which schedules should skip on rain.
+- **Smart Status Display**: Removed the distracting second-by-second countdown. The dashboard now displays clean, friendly statuses ("Planowane", "W trakcie").
+- **Rain Skip Awareness**: If a schedule is known to be skipped due to rain, the countdown is entirely hidden and replaced with a clear "Pominięte z powodu deszczu" (Skipped due to rain) status on both the Dashboard and Schedule views.
+- **Enhanced Status Sensor**: `sensor.irrigation_bss_watering_status` now publishes localized status text and active zone names (e.g. `Aktywne - Dom tył`) with machine-readable `state_value`. Localized watering status display follows the addon language setting (`pl`/`en`/`de`).
+- **Rain History Skip (`skip_if_rained_today`)**: Introduced a feature to block watering if it has rained earlier in the day by parsing HA weather entity history since local midnight. Prevents timezone-related bugs by using correct local-to-UTC conversion.
+
+### 🛡 Security & Fail-Safe
+- **Sensor Fail-Safe Mechanism**: If a Home Assistant sensor (soil moisture, temperature, flow) returns an invalid or broken numeric value, the addon now safely blocks watering (`ha_unavailable`) instead of silently ignoring the block.
+- **Hardened CORS Policy**: Removed insecure wildcard `*` CORS origins, restricting access strictly to local environments and secure Home Assistant Ingress origins, protecting against CSRF attacks.
+
+### ⚡ Performance & Architecture Optimizations
+- **N+1 Query Elimination**: Massively optimized SQLite database queries on the `/api/zones` endpoints by using SQL JOINs with `func.count()`. The UI now loads instantly without spamming the database with dozens of separate valve queries.
+- **Optimized SQLite Sessions**: Re-architected backend helpers to accept existing database sessions rather than opening and closing new ones in tight loops, significantly reducing SQLite overhead during start/stop operations.
+- **Codebase Cleanup (Breaking Change)**: Completely removed the legacy, manual SQLite migrations system. The repository is now clean and relies purely on standard `SQLModel.metadata.create_all()` for fresh installations.
+
+### 🌍 Localization
+- **Complete Translations**: Updated English (`en`), Polish (`pl`), and German (`de`) locales with new strings for schedule skip conditions, weather statuses, and friendly dashboard text.
 
 ## 1.4.4
 
