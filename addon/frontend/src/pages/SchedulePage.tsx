@@ -7,6 +7,7 @@ import type { Schedule, Zone, WateringMode } from '../types'
 import Modal from '../components/common/Modal'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import StatusBadge from '../components/common/StatusBadge'
+import CountdownDisplay from '../components/common/CountdownDisplay'
 
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const
 const DAY_BITS = [0, 1, 2, 3, 4, 5, 6]
@@ -17,57 +18,6 @@ function weekdaysFromBitmask(mask: number): boolean[] {
 }
 function bitmaskFromWeekdays(days: boolean[]): number {
   return days.reduce((acc, v, i) => v ? acc | (1 << i) : acc, 0)
-}
-
-// ---------------------------------------------------------------------------
-// useCountdown — returns live { h, m, s } from now until target ISO datetime
-// ---------------------------------------------------------------------------
-function useCountdown(isoTarget?: string) {
-  const [remaining, setRemaining] = useState<{ h: number; m: number; s: number } | null>(null)
-
-  useEffect(() => {
-    if (!isoTarget) { setRemaining(null); return }
-
-    const calc = () => {
-      const diff = new Date(isoTarget).getTime() - Date.now()
-      if (diff <= 0) return null
-      const totalSec = Math.floor(diff / 1000)
-      return {
-        h: Math.floor(totalSec / 3600),
-        m: Math.floor((totalSec % 3600) / 60),
-        s: totalSec % 60,
-      }
-    }
-
-    setRemaining(calc())
-    const id = setInterval(() => {
-      const r = calc()
-      setRemaining(r)
-      if (!r) clearInterval(id)
-    }, 1000)
-    return () => clearInterval(id)
-  }, [isoTarget])
-
-  return remaining
-}
-
-// ---------------------------------------------------------------------------
-// CountdownDisplay — renders a single live countdown badge
-// ---------------------------------------------------------------------------
-function CountdownDisplay({ isoTarget }: { isoTarget?: string }) {
-  const { t } = useTranslation()
-  const cd = useCountdown(isoTarget)
-  if (!cd) return null
-
-  const text = cd.h > 0
-    ? t('schedule.countdown', { h: cd.h, m: String(cd.m).padStart(2, '0'), s: String(cd.s).padStart(2, '0') })
-    : t('schedule.countdownShort', { m: cd.m, s: String(cd.s).padStart(2, '0') })
-
-  return (
-    <span className="inline-flex items-center gap-1 text-xs text-primary-400 font-mono">
-      <Timer size={11} />{text}
-    </span>
-  )
 }
 
 // ---------------------------------------------------------------------------
@@ -308,10 +258,12 @@ export default function SchedulePage() {
                   <p className="text-xs text-gray-600">
                     {t('schedule.nextRun')}: {new Date(sch.next_run).toLocaleString()}
                   </p>
-                  <CountdownDisplay isoTarget={sch.next_run} />
-                  {sch.next_run_will_be_skipped && (
-                    <StatusBadge variant="red">{t('schedule.skippedDueToRain')}</StatusBadge>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <CountdownDisplay isoTarget={sch.next_run} skipped={sch.next_run_will_be_skipped} />
+                    {sch.next_run_will_be_skipped && (
+                      <StatusBadge variant="red">{t('schedule.skippedDueToRain')}</StatusBadge>
+                    )}
+                  </div>
                 </div>
               )}
 

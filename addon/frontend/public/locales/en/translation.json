@@ -105,16 +105,14 @@
       "rain": "Rain sensor",
       "soil": "Soil moisture",
       "flow": "Flow meter",
-      "temperature": "Temperature",
-      "weather": "Weather"
+      "temperature": "Temperature"
     },
     "threshold": "Threshold",
     "typeDescs": {
       "rain": "Binary sensor (e.g. rain gauge contact). Blocks watering when state is ON.",
       "soil": "Soil moisture sensor (%). Blocks watering when moisture exceeds the threshold.",
       "flow": "Flow meter (L/min). Blocks watering start when unexpected flow is detected while no zone is active.",
-      "temperature": "Temperature sensor (\u00b0C). Frost protection: blocks watering when temperature is below the threshold.",
-      "weather": "HA weather entity. Blocks watering when the weather condition indicates precipitation."
+      "temperature": "Temperature sensor (°C). Frost protection: blocks watering when temperature is below the threshold."
     },
     "thresholdDescs": {
       "soil": "Block watering when soil moisture is above this value.",
@@ -167,7 +165,6 @@
     "title": "Weather",
     "temperature": "Temperature",
     "precipitation": "Precipitation",
-    "probability": "Rain probability",
     "rainExpected": "Rain expected in 24h",
     "noRain": "No rain in forecast",
     "conditions": {
@@ -184,7 +181,12 @@
     "haEntity": "HA entity",
     "openMeteo": "Open-Meteo (auto location)",
     "latitude": "Latitude",
-    "longitude": "Longitude"
+    "longitude": "Longitude",
+    "useHaLocation": "Use HA Location",
+    "skipIfRaining": "Skip if raining",
+    "skipIfRainedToday": "Skip if it rained today",
+    "forecast": "Forecast",
+    "refresh": "Refresh"
   },
   "history": {
     "title": "History",

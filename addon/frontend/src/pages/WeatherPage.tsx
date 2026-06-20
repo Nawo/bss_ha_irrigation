@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Cloud, CloudRain, Droplets, RefreshCw } from 'lucide-react'
+import { Cloud, CloudRain, Droplets, RefreshCw, MapPin } from 'lucide-react'
 import { weatherApi } from '../api/weather'
 import { haEntitiesApi } from '../api/weather'
 import { settingsApi } from '../api/settings'
@@ -20,6 +20,8 @@ export default function WeatherPage() {
   const [lat, setLat] = useState('')
   const [lon, setLon] = useState('')
   const [source, setSource] = useState<'ha' | 'openmeteo'>('ha')
+  const [skipRaining, setSkipRaining] = useState(false)
+  const [skipRainedToday, setSkipRainedToday] = useState(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const ready = useRef(false)
 
@@ -30,31 +32,52 @@ export default function WeatherPage() {
       if (cfg['weather_entity']) setEntityId(cfg['weather_entity'] ?? '')
       if (cfg['weather_lat']) setLat(cfg['weather_lat'] ?? '')
       if (cfg['weather_lon']) setLon(cfg['weather_lon'] ?? '')
+      if (cfg['weather_skip_if_raining']) setSkipRaining(cfg['weather_skip_if_raining'] === 'true')
+      if (cfg['weather_skip_if_rained_today']) setSkipRainedToday(cfg['weather_skip_if_rained_today'] === 'true')
       ready.current = true
     }).catch(() => { ready.current = true })
   }, [])
 
-  const saveSettings = (s: 'ha' | 'openmeteo', eid: string, la: string, lo: string) => {
+  const saveSettings = (s: 'ha' | 'openmeteo', eid: string, la: string, lo: string, skipR: boolean, skipRT: boolean) => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
       settingsApi.set('weather_source', s)
       settingsApi.set('weather_entity', eid || null)
       settingsApi.set('weather_lat', la || null)
       settingsApi.set('weather_lon', lo || null)
+      settingsApi.set('weather_skip_if_raining', skipR ? 'true' : 'false')
+      settingsApi.set('weather_skip_if_rained_today', skipRT ? 'true' : 'false')
     }, 600)
   }
 
   const setSourceAndSave = (s: 'ha' | 'openmeteo') => {
-    setSource(s); saveSettings(s, entityId, lat, lon)
+    setSource(s); saveSettings(s, entityId, lat, lon, skipRaining, skipRainedToday)
   }
   const setEntityAndSave = (v: string) => {
-    setEntityId(v); saveSettings(source, v, lat, lon)
+    setEntityId(v); saveSettings(source, v, lat, lon, skipRaining, skipRainedToday)
   }
   const setLatAndSave = (v: string) => {
-    setLat(v); saveSettings(source, entityId, v, lon)
+    setLat(v); saveSettings(source, entityId, v, lon, skipRaining, skipRainedToday)
   }
   const setLonAndSave = (v: string) => {
-    setLon(v); saveSettings(source, entityId, lat, v)
+    setLon(v); saveSettings(source, entityId, lat, v, skipRaining, skipRainedToday)
+  }
+  const setSkipRainingAndSave = (v: boolean) => {
+    setSkipRaining(v); saveSettings(source, entityId, lat, lon, v, skipRainedToday)
+  }
+  const setSkipRainedTodayAndSave = (v: boolean) => {
+    setSkipRainedToday(v); saveSettings(source, entityId, lat, lon, skipRaining, v)
+  }
+
+  const handleUseHaLocation = async () => {
+    try {
+      const loc = await haEntitiesApi.location()
+      setLat(String(loc.latitude))
+      setLon(String(loc.longitude))
+      saveSettings(source, entityId, String(loc.latitude), String(loc.longitude), skipRaining, skipRainedToday)
+    } catch (e) {
+      console.error('Failed to get HA location', e)
+    }
   }
 
   const refresh = async () => {
@@ -100,29 +123,53 @@ export default function WeatherPage() {
           <div>
             <label className="label">{t('weather.haEntity')}</label>
             <select className="input" value={entityId} onChange={e => setEntityAndSave(e.target.value)}>
-              <option value="">— select —</option>
+              <option value="">— {t('common.select', 'select')} —</option>
               {entities.map(e => <option key={e.entity_id} value={e.entity_id}>{e.friendly_name}</option>)}
             </select>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">{t('weather.latitude')}</label>
-              <input className="input" type="number" step="0.0001" placeholder="52.2297"
-                value={lat} onChange={e => setLatAndSave(e.target.value)} />
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">{t('weather.latitude')}</label>
+                <input className="input" type="number" step="0.0001" placeholder="52.2297"
+                  value={lat} onChange={e => setLatAndSave(e.target.value)} />
+              </div>
+              <div>
+                <label className="label">{t('weather.longitude')}</label>
+                <input className="input" type="number" step="0.0001" placeholder="21.0122"
+                  value={lon} onChange={e => setLonAndSave(e.target.value)} />
+              </div>
             </div>
-            <div>
-              <label className="label">{t('weather.longitude')}</label>
-              <input className="input" type="number" step="0.0001" placeholder="21.0122"
-                value={lon} onChange={e => setLonAndSave(e.target.value)} />
-            </div>
+            <button onClick={handleUseHaLocation}
+              className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1.5 transition-colors">
+              <MapPin size={14} />
+              {t('weather.useHaLocation')}
+            </button>
           </div>
         )}
+
+        <div className="space-y-2 border border-gray-200 dark:border-gray-800 rounded-lg p-3">
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="skip-raining" checked={skipRaining}
+              onChange={e => setSkipRainingAndSave(e.target.checked)} className="w-4 h-4 accent-primary-500" />
+            <label htmlFor="skip-raining" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('weather.skipIfRaining')}
+            </label>
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="skip-rained-today" checked={skipRainedToday}
+              onChange={e => setSkipRainedTodayAndSave(e.target.checked)} className="w-4 h-4 accent-primary-500" />
+            <label htmlFor="skip-rained-today" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('weather.skipIfRainedToday')}
+            </label>
+          </div>
+        </div>
 
         <button onClick={refresh} disabled={loading}
           className="btn-secondary btn-sm flex items-center gap-2">
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          Refresh
+          {t('weather.refresh')}
         </button>
       </div>
 
@@ -148,16 +195,11 @@ export default function WeatherPage() {
                   </div>
               }
             </div>
-            <div className="flex gap-4 text-sm">
-              <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
-                <Droplets size={14} />{data.precipitation_probability}% {t('weather.probability')}
-              </div>
-            </div>
           </div>
 
           {data.forecast.length > 0 && (
             <div className="card">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">Forecast</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">{t('weather.forecast')}</p>
               <div className="grid grid-cols-4 gap-2">
                 {data.forecast.slice(0, 8).map((f, i) => (
                   <div key={i} className="bg-gray-100 dark:bg-gray-800 rounded-lg p-2 text-center">
@@ -166,9 +208,8 @@ export default function WeatherPage() {
                     </div>
                     <div className="text-lg">{CONDITION_ICONS[f.condition] ?? '🌡️'}</div>
                     <div className="text-xs text-gray-900 dark:text-white mt-1">
-                      {f.temperature !== undefined ? `${f.temperature}°` : '—'}
+                      {f.temperature !== undefined && f.temperature !== null ? `${f.temperature}°` : '—'}
                     </div>
-                    <div className="text-xs text-blue-500 dark:text-blue-400">{f.precipitation_probability}%</div>
                   </div>
                 ))}
               </div>

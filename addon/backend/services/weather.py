@@ -19,7 +19,6 @@ async def get_forecast(weather_entity_id: Optional[str] = None,
     Returns: {
         condition: str,
         temperature: float,
-        precipitation_probability: int,
         rain_expected_24h: bool,
         forecast: [...]
     }
@@ -28,20 +27,19 @@ async def get_forecast(weather_entity_id: Optional[str] = None,
         return await _from_ha_entity(weather_entity_id)
     if lat and lon:
         return await _from_open_meteo(lat, lon)
-    return {"condition": "unknown", "temperature": None, "precipitation_probability": 0,
+    return {"condition": "unknown", "temperature": None,
             "rain_expected_24h": False, "forecast": []}
 
 
 async def _from_ha_entity(entity_id: str) -> dict:
     state = ha_client.get_cached_state(entity_id)
     if not state:
-        return {"condition": "unknown", "temperature": None, "precipitation_probability": 0,
+        return {"condition": "unknown", "temperature": None,
                 "rain_expected_24h": False, "forecast": []}
 
     attrs = state.get("attributes", {})
     condition = state.get("state", "unknown")
     temp = attrs.get("temperature")
-    precip = attrs.get("precipitation_probability")
     rain_conditions = {"rainy", "pouring", "lightning-rainy", "lightning"}
 
     # Try to get forecast from attributes first (older HA versions)
@@ -72,29 +70,22 @@ async def _from_ha_entity(entity_id: str) -> dict:
                 pass
 
     forecast = []
-    max_precip_from_forecast = 0
+    rain_in_forecast = False
     for f in raw_forecast[:24]:
-        fp = f.get("precipitation_probability", 0) or 0
-        if fp > max_precip_from_forecast:
-            max_precip_from_forecast = fp
+        fc = f.get("condition", "unknown")
+        if fc in rain_conditions:
+            rain_in_forecast = True
         forecast.append({
             "datetime": f.get("datetime"),
-            "condition": f.get("condition"),
+            "condition": fc,
             "temperature": f.get("temperature"),
-            "precipitation_probability": fp,
         })
 
-    # If precip probability not available on entity, use the max from forecast
-    if precip is None and forecast:
-        precip = max_precip_from_forecast
-
-    precip = precip or 0
-    rain_expected = condition in rain_conditions or (precip is not None and precip > 50)
+    rain_expected = condition in rain_conditions or rain_in_forecast
 
     return {
         "condition": condition,
         "temperature": temp,
-        "precipitation_probability": precip,
         "rain_expected_24h": rain_expected,
         "forecast": forecast,
     }
@@ -104,8 +95,8 @@ async def _from_open_meteo(lat: float, lon: float) -> dict:
     params = {
         "latitude": lat,
         "longitude": lon,
-        "current": "temperature_2m,precipitation_probability,weathercode",
-        "hourly": "precipitation_probability",
+        "current": "temperature_2m,weathercode",
+        "hourly": "weathercode",
         "forecast_days": 1,
     }
     try:
@@ -115,21 +106,28 @@ async def _from_open_meteo(lat: float, lon: float) -> dict:
 
         current = data.get("current", {})
         temp = current.get("temperature_2m")
-        precip = current.get("precipitation_probability", 0)
-        hourly_precip = data.get("hourly", {}).get("precipitation_probability", [])
-        max_precip = max(hourly_precip) if hourly_precip else 0
-        rain_expected = max_precip > 50
+        hourly_codes = data.get("hourly", {}).get("weathercode", [])
+        rain_codes = set(range(51, 68)) | set(range(80, 83)) | set(range(95, 100))
+        rain_expected = any(c in rain_codes for c in hourly_codes)
+
+        forecast = []
+        hourly_time = data.get("hourly", {}).get("time", [])
+        for i, code in enumerate(hourly_codes[:24]):
+            forecast.append({
+                "datetime": hourly_time[i] if i < len(hourly_time) else None,
+                "condition": _wmo_to_condition(code),
+                "temperature": None,
+            })
 
         return {
             "condition": _wmo_to_condition(current.get("weathercode", 0)),
             "temperature": temp,
-            "precipitation_probability": precip,
             "rain_expected_24h": rain_expected,
-            "forecast": [],
+            "forecast": forecast,
         }
     except Exception as e:
         logger.error(f"Open-Meteo fetch failed: {e}")
-        return {"condition": "unknown", "temperature": None, "precipitation_probability": 0,
+        return {"condition": "unknown", "temperature": None,
                 "rain_expected_24h": False, "forecast": []}
 
 

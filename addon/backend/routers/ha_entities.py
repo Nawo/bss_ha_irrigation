@@ -95,3 +95,22 @@ async def call_ha_service(body: ServiceCallRequest):
     domain = body.entity_id.split(".")[0]
     await ha_client.call_service(domain, body.service, {"entity_id": body.entity_id})
     return {"ok": True, "entity_id": body.entity_id, "service": body.service}
+
+
+@router.get("/location")
+async def get_ha_location():
+    """Return lat/lon from HA's zone.home entity (always exists)."""
+    state = ha_client.get_cached_state("zone.home")
+    if not state:
+        # Fallback: try fetching all states
+        states = await ha_client.get_states()
+        state = next((s for s in states if s.get("entity_id") == "zone.home"), None)
+    if not state:
+        raise HTTPException(404, "zone.home entity not found in Home Assistant")
+    attrs = state.get("attributes", {})
+    lat = attrs.get("latitude")
+    lon = attrs.get("longitude")
+    if lat is None or lon is None:
+        raise HTTPException(404, "zone.home has no latitude/longitude")
+    return {"latitude": float(lat), "longitude": float(lon)}
+

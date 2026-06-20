@@ -23,4 +23,5 @@ export const haEntitiesApi = {
   valves: () => client.get<HAEntity[]>('/api/ha/entities/valves').then(r => r.data),
   sensors: () => client.get<HAEntity[]>('/api/ha/entities/sensors').then(r => r.data),
   weather: () => client.get<HAEntity[]>('/api/ha/entities/weather').then(r => r.data),
+  location: () => client.get<{ latitude: number; longitude: number }>('/api/ha/location').then(r => r.data),
 }

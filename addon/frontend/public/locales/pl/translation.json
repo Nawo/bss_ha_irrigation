@@ -105,16 +105,14 @@
       "rain": "Czujnik deszczu",
       "soil": "Wilgotność gleby",
       "flow": "Przepływ wody",
-      "temperature": "Temperatura",
-      "weather": "Pogoda"
+      "temperature": "Temperatura"
     },
     "threshold": "Próg",
     "typeDescs": {
       "rain": "Czujnik binarny (np. taca deszczowa). Blokuje podlewanie gdy stan to ON.",
       "soil": "Czujnik wilgotności gleby (%). Blokuje podlewanie gdy wilgotność przekroczy próg.",
       "flow": "Przepływomierz (L/min). Blokuje start gdy wykryje przepływ wody przy braku aktywnej sekcji.",
-      "temperature": "Czujnik temperatury (°C). Ochrona przed mrozem: blokuje podlewanie poniżej progu.",
-      "weather": "Encja pogodowa HA. Blokuje podlewanie gdy stan pogody wskazuje opady."
+      "temperature": "Czujnik temperatury (°C). Ochrona przed mrozem: blokuje podlewanie poniżej progu."
     },
     "thresholdDescs": {
       "soil": "Blokuj podlewanie gdy wilgotność gleby przekracza tę wartość.",
@@ -167,7 +165,6 @@
     "title": "Pogoda",
     "temperature": "Temperatura",
     "precipitation": "Opady",
-    "probability": "Prawdopodobieństwo deszczu",
     "rainExpected": "Deszcz prognozowany w ciągu 24h",
     "noRain": "Brak deszczu w prognozie",
     "conditions": {
@@ -184,7 +181,12 @@
     "haEntity": "Encja HA",
     "openMeteo": "Open-Meteo (automatyczna lokalizacja)",
     "latitude": "Szerokość geograficzna",
-    "longitude": "Długość geograficzna"
+    "longitude": "Długość geograficzna",
+    "useHaLocation": "Użyj lokalizacji z Home Assistant",
+    "skipIfRaining": "Pomiń podlewanie gdy pada",
+    "skipIfRainedToday": "Pomiń jeśli dzisiaj padało",
+    "forecast": "Prognoza",
+    "refresh": "Odśwież"
   },
   "history": {
     "title": "Historia",

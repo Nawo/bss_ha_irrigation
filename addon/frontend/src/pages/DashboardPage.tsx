@@ -8,6 +8,7 @@ import { schedulesApi } from '../api/schedules'
 import { irrigationApi } from '../api/irrigation'
 import type { Zone, Sensor, Schedule } from '../types'
 import StatusBadge from '../components/common/StatusBadge'
+import CountdownDisplay from '../components/common/CountdownDisplay'
 import Modal from '../components/common/Modal'
 import { useNavigate } from 'react-router-dom'
 
@@ -16,16 +17,6 @@ function formatTime(sec: number) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-function formatNextRun(iso?: string) {
-  if (!iso) return null
-  const d = new Date(iso)
-  const now = new Date()
-  const diffH = Math.round((d.getTime() - now.getTime()) / 3600000)
-  if (diffH < 1) return '< 1h'
-  if (diffH < 24) return `${diffH}h`
-  const days = Math.round(diffH / 24)
-  return `${days}d`
-}
 
 export default function DashboardPage() {
   const { t } = useTranslation()
@@ -45,6 +36,11 @@ export default function DashboardPage() {
     zonesApi.list().then(setZones).catch(() => {})
     sensorsApi.list().then(setSensors).catch(() => {})
     schedulesApi.list().then(setSchedules).catch(() => {})
+
+    const id = setInterval(() => {
+      schedulesApi.list().then(setSchedules).catch(() => {})
+    }, 30000)
+    return () => clearInterval(id)
   }, [])
 
   const blockingSensors = sensors.filter(s => s.is_blocking && s.enabled)
@@ -64,13 +60,13 @@ export default function DashboardPage() {
     }
   }, [availableStartZones, quickZoneId])
 
-  const nextRunForZone = (zoneId: number): string | null => {
+  const nextScheduleForZone = (zoneId: number): Schedule | null => {
     const zoneSchedules = schedules.filter(s => s.zone_id === zoneId && s.enabled && s.next_run)
     if (!zoneSchedules.length) return null
     const sorted = [...zoneSchedules].sort((a, b) =>
       new Date(a.next_run!).getTime() - new Date(b.next_run!).getTime()
     )
-    return formatNextRun(sorted[0].next_run)
+    return sorted[0]
   }
 
   const startZoneWithDuration = async (zoneId: number, durationMin: number, closeModal = false, force = false) => {
@@ -222,7 +218,7 @@ export default function DashboardPage() {
             {zones.map(zone => {
               const isActive = activeZones.some(a => a.zone_id === zone.id)
               const activeInfo = activeZones.find(a => a.zone_id === zone.id)
-              const nextRun = nextRunForZone(zone.id)
+              const nextSchedule = nextScheduleForZone(zone.id)
               return (
                 <div key={zone.id}
                   className={`card transition-colors ${isActive ? 'border-primary-700' : 'hover:border-gray-700'}`}>
@@ -239,12 +235,20 @@ export default function DashboardPage() {
                     <span className="flex items-center gap-1">
                       <Clock size={11} />{zone.duration_min} min
                     </span>
-                    {nextRun && (
-                      <span className="flex items-center gap-1 text-primary-400">
-                        <CalendarDays size={11} />{nextRun}
-                      </span>
-                    )}
                   </div>
+
+                  {nextSchedule && (
+                    <div className="flex items-center gap-2 mb-3 mt-1">
+                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                        <CalendarDays size={11} />
+                        {new Date(nextSchedule.next_run!).toLocaleDateString()} {new Date(nextSchedule.next_run!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <CountdownDisplay isoTarget={nextSchedule.next_run!} skipped={nextSchedule.next_run_will_be_skipped} />
+                      {nextSchedule.next_run_will_be_skipped && (
+                        <StatusBadge variant="red">{t('schedule.skippedDueToRain')}</StatusBadge>
+                      )}
+                    </div>
+                  )}
 
                   {isActive && activeInfo && (
                     <div className="mb-3">

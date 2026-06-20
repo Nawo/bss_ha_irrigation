@@ -8,10 +8,10 @@ import ConfirmDialog from '../components/common/ConfirmDialog'
 import StatusBadge from '../components/common/StatusBadge'
 import EntityPicker from '../components/common/EntityPicker'
 
-const SENSOR_TYPES: SensorType[] = ['rain', 'soil', 'flow', 'temperature', 'weather']
+const SENSOR_TYPES: SensorType[] = ['rain', 'soil', 'flow', 'temperature']
 
 const TYPE_ENTITY_MAP: Record<SensorType, 'sensors' | 'weather'> = {
-  rain: 'sensors', soil: 'sensors', flow: 'sensors', temperature: 'sensors', weather: 'weather',
+  rain: 'sensors', soil: 'sensors', flow: 'sensors', temperature: 'sensors',
 }
 
 function formatSensorValue(sensor: Sensor, t: (k: string) => string) {
@@ -24,11 +24,6 @@ function formatSensorValue(sensor: Sensor, t: (k: string) => string) {
     return t('common.unavailable')
   }
 
-  if (sensor.sensor_type === 'weather') {
-    const key = `weather.conditions.${normalized}`
-    const translated = t(key)
-    return translated === key ? raw : translated
-  }
 
   if (normalized === 'on') return t('common.on')
   if (normalized === 'off') return t('common.off')
@@ -75,11 +70,6 @@ function SensorForm({ initial, onSave, onCancel }: {
   }
 
   const showThreshold = form.sensor_type === 'soil' || form.sensor_type === 'temperature' || form.sensor_type === 'flow'
-  const thresholdLabel =
-    form.sensor_type === 'soil' ? `${t('sensors.threshold')} (%)` :
-    form.sensor_type === 'flow' ? `${t('sensors.threshold')} (L/min)` :
-    `${t('sensors.threshold')} (°C)`
-  const isWeatherSensor = form.sensor_type === 'weather'
 
   return (
     <form onSubmit={submit} className="p-5 space-y-4">
@@ -103,7 +93,11 @@ function SensorForm({ initial, onSave, onCancel }: {
       </div>
       {showThreshold && (
         <div>
-          <label className="label">{thresholdLabel}</label>
+          <label className="label">
+            {form.sensor_type === 'soil' ? `${t('sensors.threshold')} (%)` :
+             form.sensor_type === 'flow' ? `${t('sensors.threshold')} (L/min)` :
+             `${t('sensors.threshold')} (°C)`}
+          </label>
           <input className="input" type="number" step="0.1"
             value={form.threshold ?? (form.sensor_type === 'soil' ? 80 : form.sensor_type === 'flow' ? 0 : 2)}
             onChange={e => set('threshold', Number(e.target.value))} />
@@ -117,18 +111,6 @@ function SensorForm({ initial, onSave, onCancel }: {
         <textarea className="input resize-none" rows={2}
           value={form.notes || ''} onChange={e => set('notes', e.target.value)} />
       </div>
-      {isWeatherSensor && (
-        <div className="space-y-2 border border-gray-200 dark:border-gray-800 rounded-lg p-3">
-          <div className="flex items-center gap-2">
-            <input type="checkbox" id="skip-rained-today" checked={!!form.skip_if_rained_today}
-              onChange={e => set('skip_if_rained_today', e.target.checked)} className="w-4 h-4 accent-primary-500" />
-            <label htmlFor="skip-rained-today" className="text-sm text-gray-700 dark:text-gray-300">
-              {t('sensors.skipIfRainedToday')}
-            </label>
-          </div>
-          <p className="text-xs text-gray-500 ml-6">{t('sensors.skipIfRainedTodayDesc')}</p>
-        </div>
-      )}
       <div className="flex items-center gap-2">
         <input type="checkbox" id="s-en" checked={!!form.enabled}
           onChange={e => set('enabled', e.target.checked)} className="w-4 h-4 accent-primary-500" />

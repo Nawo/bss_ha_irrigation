@@ -2,7 +2,9 @@
 HA Publisher — periodically pushes irrigation state to Home Assistant entities.
 
 All constants and configuration are defined at the top of the file.
-Translations are loaded from the shared frontend locale JSON files via i18n module.
+Status labels are defined inline (not loaded from JSON files) to avoid
+Docker path issues — the frontend dist bundle doesn't preserve the
+original public/locales/ directory structure.
 """
 import asyncio
 import logging
@@ -20,7 +22,6 @@ from backend.models import (
 )
 from backend.services import ha_client, irrigation
 from backend.services import scheduler as sched
-from backend.services.i18n import t as translate
 from backend.services.irrigation import check_sensors_blocking
 
 logger = logging.getLogger(__name__)
@@ -35,22 +36,72 @@ _publisher_task: Optional[asyncio.Task] = None
 # Configuration constants
 # ---------------------------------------------------------------------------
 PUBLISH_INTERVAL: int = 10  # seconds between HA pushes
+INTEGRATION_TAG: str = "irrigation_bss"
 
-# Map machine_state -> (translation key, mdi icon)
-STATE_CONFIG: dict[str, tuple[str, str]] = {
-    "active":             ("status.active",           "mdi:sprinkler"),
-    "rain_blocked":       ("status.rainBlocked",      "mdi:weather-rainy"),
-    "rain_today_blocked": ("status.rainTodayBlocked",  "mdi:weather-rainy"),
-    "frost_protection":   ("status.frostProtection",   "mdi:snowflake"),
-    "inactive":           ("status.inactive",          "mdi:sprinkler-variant"),
+# Status labels per language — kept inline because the backend runs inside
+# a Docker container where the frontend locale JSON files are not available
+# at their original paths (they are bundled into /app/frontend/dist/).
+STATUS_LABELS: dict[str, dict[str, str]] = {
+    "en": {
+        "active":             "Watering",
+        "planned":            "Planned",
+        "rain_blocked":       "Blocked — rain",
+        "rain_today_blocked": "Blocked — rained today",
+        "frost_protection":   "Blocked — frost",
+        "inactive":           "Pending",
+        "friendly_name":      "Irrigation BSS — Watering Status",
+    },
+    "pl": {
+        "active":             "W trakcie",
+        "planned":            "Planowane",
+        "rain_blocked":       "Zablokowane — deszcz",
+        "rain_today_blocked": "Zablokowane — padało dziś",
+        "frost_protection":   "Zablokowane — mróz",
+        "inactive":           "Oczekuje",
+        "friendly_name":      "Irrigation BSS — Status podlewania",
+    },
+    "de": {
+        "active":             "Bewässert",
+        "planned":            "Geplant",
+        "rain_blocked":       "Blockiert — Regen",
+        "rain_today_blocked": "Blockiert — heute geregnet",
+        "frost_protection":   "Blockiert — Frost",
+        "inactive":           "Ausstehend",
+        "friendly_name":      "Irrigation BSS — Bewässerungsstatus",
+    },
 }
 
-INTEGRATION_TAG = "irrigation_bss"
+# Map machine_state -> mdi icon
+STATE_ICONS: dict[str, str] = {
+    "active":             "mdi:sprinkler",
+    "planned":            "mdi:calendar-clock",
+    "rain_blocked":       "mdi:weather-rainy",
+    "rain_today_blocked": "mdi:weather-rainy",
+    "frost_protection":   "mdi:snowflake",
+    "inactive":           "mdi:sprinkler-variant",
+}
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+def _label(machine_state: str, lang: str) -> str:
+    """Get a translated label for a machine state."""
+    labels = STATUS_LABELS.get(lang, STATUS_LABELS["en"])
+    return labels.get(machine_state, labels.get("inactive", machine_state))
+
+
+def _friendly_name(lang: str) -> str:
+    """Get the translated friendly_name for the status sensor."""
+    labels = STATUS_LABELS.get(lang, STATUS_LABELS["en"])
+    return labels.get("friendly_name", "Irrigation BSS — Watering Status")
+
+
+def _icon(machine_state: str) -> str:
+    """Get the MDI icon for a machine state."""
+    return STATE_ICONS.get(machine_state, "mdi:sprinkler-variant")
+
+
 async def _push_state(
     session: aiohttp.ClientSession,
     entity_id: str,
@@ -87,63 +138,79 @@ def _get_language_sync() -> str:
     return lang
 
 
-def _get_db_data_sync() -> tuple[Optional[str], list[dict]]:
-    """Read next_run and all zones from DB (runs in thread)."""
+def _get_db_data_sync() -> tuple[Optional[str], Optional[str], list[dict]]:
+    """Read next_run, planned_zone_name, and all zones from DB (runs in thread)."""
     with Session(engine) as session:
+        all_zones = session.exec(select(Zone)).all()
+        zones_data = [{"id": z.id, "name": z.name} for z in all_zones]
+        zone_dict = {z.id: z.name for z in all_zones}
+
         schedules = session.exec(
             select(Schedule).where(Schedule.enabled == True)
         ).all()
-        runs = [
-            run for s in schedules
-            if (run := sched.get_next_run(s.id)) is not None
-        ]
-        next_run = min(runs) if runs else None
+        
+        runs = []
+        for s in schedules:
+            run_iso = sched.get_next_run(s.id)
+            if run_iso:
+                runs.append((run_iso, zone_dict.get(s.zone_id, "Unknown")))
+        
+        next_run = None
+        planned_zone_name = None
+        if runs:
+            runs.sort(key=lambda x: x[0])
+            next_run = runs[0][0]
+            planned_zone_name = runs[0][1]
 
-        all_zones = session.exec(select(Zone)).all()
-        zones_data = [{"id": z.id, "name": z.name} for z in all_zones]
-
-    return next_run, zones_data
+    return next_run, planned_zone_name, zones_data
 
 
 async def _check_rained_today() -> bool:
-    """Check if any sensor with skip_if_rained_today has detected historical rain."""
-    with Session(engine) as session:
-        sensors = session.exec(
-            select(Sensor).where(
-                Sensor.enabled == True,
-                Sensor.skip_if_rained_today == True,
-            )
-        ).all()
-
-    if not sensors:
-        return False
-
+    """Check if it rained today — via rain sensors or the weather entity from settings."""
     local_now = datetime.now().astimezone()
     local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
     utc_midnight = local_midnight.astimezone(timezone.utc).replace(tzinfo=None)
 
-    for sensor in sensors:
+    # 1. Check rain sensors (binary on/off)
+    with Session(engine) as session:
+        rain_sensors = session.exec(
+            select(Sensor).where(
+                Sensor.enabled == True,
+                Sensor.skip_if_rained_today == True,
+                Sensor.sensor_type == SensorType.rain,
+            )
+        ).all()
+
+    for sensor in rain_sensors:
         state = ha_client.get_cached_state(sensor.entity_id)
         if not state:
             continue
         val = str(state.get("state", "")).strip().lower()
+        if val == "on":
+            return True
+        history = await ha_client.get_history(sensor.entity_id, utc_midnight)
+        if any(str(h.get("state")).strip().lower() == "on" for h in history if h):
+            return True
 
-        if sensor.sensor_type == SensorType.rain:
-            if val == "on":
-                return True
-            history = await ha_client.get_history(sensor.entity_id, utc_midnight)
-            if any(str(h.get("state")).strip().lower() == "on" for h in history if h):
-                return True
+    # 2. Check weather entity from Weather tab settings
+    with Session(engine) as session:
+        rows = session.exec(select(AppSetting)).all()
+        cfg = {r.key: r.value for r in rows}
 
-        elif sensor.sensor_type == SensorType.weather:
-            if val in RAIN_WEATHER_STATES:
-                return False  # Currently raining — not "rained today" specifically
-            history = await ha_client.get_history(sensor.entity_id, utc_midnight)
-            if any(
-                str(h.get("state")).strip().lower() in RAIN_WEATHER_STATES
-                for h in history if h
-            ):
-                return True
+    entity_id = cfg.get("weather_entity", "")
+    skip_rained = cfg.get("weather_skip_if_rained_today", "false") == "true"
+
+    if skip_rained and entity_id:
+        state = ha_client.get_cached_state(entity_id)
+        if state:
+            val = str(state.get("state", "")).strip().lower()
+            if val not in ("unknown", "unavailable", "none", ""):
+                history = await ha_client.get_history(entity_id, utc_midnight)
+                if val in RAIN_WEATHER_STATES or any(
+                    str(h.get("state")).strip().lower() in RAIN_WEATHER_STATES
+                    for h in history if h
+                ):
+                    return True
 
     return False
 
@@ -156,6 +223,7 @@ def _resolve_machine_state(
     rain_blocked: bool,
     frost_blocked: bool,
     rained_today: bool,
+    next_run: Optional[str],
 ) -> str:
     """Determine the machine_state string from current conditions."""
     if active_zones:
@@ -166,22 +234,31 @@ def _resolve_machine_state(
         return "rain_blocked"
     if frost_blocked:
         return "frost_protection"
+    
+    if next_run:
+        try:
+            dt = datetime.fromisoformat(next_run)
+            if dt.date() == datetime.now().astimezone().date():
+                return "planned"
+        except ValueError:
+            pass
+
     return "inactive"
 
 
-def _get_display_state(machine_state: str, lang: str, active_zone_name: Optional[str] = None) -> str:
-    """Resolve display label from translation files."""
-    t_key, _ = STATE_CONFIG.get(machine_state, ("status.inactive", "mdi:sprinkler-variant"))
-    label = translate(t_key, lang)
+def _get_display_state(
+    machine_state: str,
+    lang: str,
+    active_zone_name: Optional[str] = None,
+    planned_zone_name: Optional[str] = None,
+) -> str:
+    """Build the human-readable display state."""
+    label = _label(machine_state, lang)
     if machine_state == "active" and active_zone_name:
-        return f"{label} - {active_zone_name}"
+        return f"{label} {active_zone_name}"
+    if machine_state == "planned" and planned_zone_name:
+        return f"{label} {planned_zone_name}"
     return label
-
-
-def _get_icon(machine_state: str) -> str:
-    """Resolve MDI icon for a machine state."""
-    _, icon = STATE_CONFIG.get(machine_state, ("status.inactive", "mdi:sprinkler-variant"))
-    return icon
 
 
 # ---------------------------------------------------------------------------
@@ -199,7 +276,6 @@ def _build_core_entities(
 ) -> list[tuple[str, str, dict]]:
     """Build the list of core (non-zone) HA entities."""
     active_zone = active_zones[0] if active_zones else None
-    friendly_name = translate("status.friendlyName", lang)
 
     return [
         ("binary_sensor.irrigation_bss_watering", "on" if any_watering else "off", {
@@ -209,7 +285,7 @@ def _build_core_entities(
             "integration": INTEGRATION_TAG,
         }),
         ("sensor.irrigation_bss_watering_status", display_state, {
-            "friendly_name": friendly_name,
+            "friendly_name": _friendly_name(lang),
             "icon": dynamic_icon,
             "integration": INTEGRATION_TAG,
             "status_reason": skip.value if skip else None,
@@ -316,15 +392,15 @@ async def publish_once(http_session: aiohttp.ClientSession) -> None:
 
     # 2. Gather DB data (in thread to avoid blocking asyncio)
     lang = await asyncio.to_thread(_get_language_sync)
-    next_run, all_zones = await asyncio.to_thread(_get_db_data_sync)
+    next_run, planned_zone_name, all_zones = await asyncio.to_thread(_get_db_data_sync)
 
     # 3. Resolve display state
     machine_state = _resolve_machine_state(
-        active_zones, rain_blocked, frost_blocked, rained_today,
+        active_zones, rain_blocked, frost_blocked, rained_today, next_run
     )
     active_zone_name = active_zones[0]["zone_name"] if active_zones else None
-    display_state = _get_display_state(machine_state, lang, active_zone_name)
-    dynamic_icon = _get_icon(machine_state)
+    display_state = _get_display_state(machine_state, lang, active_zone_name, planned_zone_name)
+    dynamic_icon = _icon(machine_state)
 
     # 4. Build entity list
     entities = _build_core_entities(

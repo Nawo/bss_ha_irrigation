@@ -105,16 +105,14 @@
       "rain": "Regensensor",
       "soil": "Bodenfeuchte",
       "flow": "Durchflussmesser",
-      "temperature": "Temperatur",
-      "weather": "Wetter"
+      "temperature": "Temperatur"
     },
     "threshold": "Schwellenwert",
     "typeDescs": {
       "rain": "Binärer Sensor (z.B. Regensensor). Blockiert bei Zustand ON.",
       "soil": "Bodenfeuchtesensor (%). Blockiert wenn Feuchtigkeit über Schwellenwert liegt.",
       "flow": "Durchflussmesser (L/min). Blockiert Start bei unerwartetem Durchfluss ohne aktive Sektion.",
-      "temperature": "Temperatursensor (°C). Frostschutz: blockiert Bewässerung unter dem Schwellenwert.",
-      "weather": "HA Wetterentität. Blockiert bei Niederschlag laut Wetterzustand."
+      "temperature": "Temperatursensor (°C). Frostschutz: blockiert Bewässerung unter dem Schwellenwert."
     },
     "thresholdDescs": {
       "soil": "Bewässerung blockieren wenn Bodenfeuchte diesen Wert überschreitet.",
@@ -168,7 +166,6 @@
     "title": "Wetter",
     "temperature": "Temperatur",
     "precipitation": "Niederschlag",
-    "probability": "Regenwahrscheinlichkeit",
     "rainExpected": "Regen in 24h erwartet",
     "noRain": "Kein Regen in der Prognose",
     "conditions": {
@@ -185,7 +182,12 @@
     "haEntity": "HA-Entität",
     "openMeteo": "Open-Meteo (automatischer Standort)",
     "latitude": "Breitengrad",
-    "longitude": "Längengrad"
+    "longitude": "Längengrad",
+    "useHaLocation": "Standort von HA verwenden",
+    "skipIfRaining": "Bei Regen überspringen",
+    "skipIfRainedToday": "Überspringen, wenn es heute geregnet hat",
+    "forecast": "Prognose",
+    "refresh": "Aktualisieren"
   },
   "history": {
     "title": "Verlauf",

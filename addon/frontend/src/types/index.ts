@@ -21,7 +21,7 @@ export interface Valve {
   ha_state?: 'on'|'off'|'unavailable'|string
 }
 
-export type SensorType = 'rain'|'soil'|'flow'|'temperature'|'weather'
+export type SensorType = 'rain'|'soil'|'flow'|'temperature'
 
 export interface Sensor {
   id: number
@@ -101,7 +101,6 @@ export interface HAEntity {
 export interface WeatherData {
   condition: string
   temperature?: number
-  precipitation_probability: number
   rain_expected_24h: boolean
   forecast: WeatherForecastItem[]
 }
@@ -110,5 +109,4 @@ export interface WeatherForecastItem {
   datetime: string
   condition: string
   temperature?: number
-  precipitation_probability: number
 }
