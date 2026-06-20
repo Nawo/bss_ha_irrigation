@@ -421,7 +421,7 @@ async def start_zone(zone_id: int, duration_min: Optional[int] = None,
         valve_entities = [v.entity_id for v in valves]
         zone_name = zone.name
 
-    if not skip_sensor_check:
+    if not skip_sensor_check and triggered_by != TriggerSource.manual:
         skip = await check_sensors_blocking(
             skip_if_raining=skip_if_raining,
             skip_if_rained_today=skip_if_rained_today,
