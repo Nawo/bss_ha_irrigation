@@ -109,7 +109,7 @@ async def _from_open_meteo(lat: float, lon: float) -> dict:
         "longitude": lon,
         "current": "temperature_2m,weathercode",
         "hourly": "temperature_2m,weathercode",
-        "forecast_days": 1,
+        "forecast_days": 2,
     }
     try:
         async with aiohttp.ClientSession() as s:
@@ -122,17 +122,20 @@ async def _from_open_meteo(lat: float, lon: float) -> dict:
         hourly_temps = data.get("hourly", {}).get("temperature_2m", [])
         rain_codes = set(range(51, 68)) | set(range(80, 83)) | set(range(95, 100))
         
-        rain_expected = any(c in rain_codes for c in hourly_codes)
-        
         current_hour = datetime.now().astimezone().hour
         rain_detected = any(c in rain_codes for c in hourly_codes[:current_hour + 1])
+        rain_expected = any(c in rain_codes for c in hourly_codes[current_hour:current_hour + 24])
 
         forecast = []
         hourly_time = data.get("hourly", {}).get("time", [])
-        for i, code in enumerate(hourly_codes[:24]):
+        # Start forecast from the next hour
+        start_idx = current_hour + 1
+        end_idx = min(start_idx + 24, len(hourly_codes))
+        
+        for i in range(start_idx, end_idx):
             forecast.append({
                 "datetime": hourly_time[i] if i < len(hourly_time) else None,
-                "condition": _wmo_to_condition(code),
+                "condition": _wmo_to_condition(hourly_codes[i]),
                 "temperature": hourly_temps[i] if i < len(hourly_temps) else None,
             })
 
