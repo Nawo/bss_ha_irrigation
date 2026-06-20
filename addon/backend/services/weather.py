@@ -72,15 +72,30 @@ async def _from_ha_entity(entity_id: str) -> dict:
 
     forecast = []
     rain_in_forecast = False
-    for f in raw_forecast[:24]:
+    
+    local_now_ts = datetime.now().astimezone().timestamp()
+
+    for f in raw_forecast:
+        dt_str = f.get("datetime")
+        if dt_str:
+            try:
+                dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+                # Skip if older than current hour
+                if dt.timestamp() < local_now_ts - 3600:
+                    continue
+            except Exception:
+                pass
+
         fc = f.get("condition", "unknown")
         if fc in rain_conditions:
             rain_in_forecast = True
         forecast.append({
-            "datetime": f.get("datetime"),
+            "datetime": dt_str,
             "condition": fc,
             "temperature": f.get("temperature"),
         })
+        if len(forecast) >= 24:
+            break
 
     rain_expected = condition in rain_conditions or rain_in_forecast
 
