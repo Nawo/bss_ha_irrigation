@@ -138,8 +138,8 @@ def _get_language_sync() -> str:
     return lang
 
 
-def _get_db_data_sync() -> tuple[Optional[str], Optional[str], list[dict]]:
-    """Read next_run, planned_zone_name, and all zones from DB (runs in thread)."""
+def _get_db_data_sync() -> tuple[Optional[str], Optional[str], list[dict], dict]:
+    """Read next_run, planned_zone_name, all zones, and next schedule skips from DB (runs in thread)."""
     with Session(engine) as session:
         all_zones = session.exec(select(Zone)).all()
         zones_data = [{"id": z.id, "name": z.name} for z in all_zones]
@@ -153,16 +153,29 @@ def _get_db_data_sync() -> tuple[Optional[str], Optional[str], list[dict]]:
         for s in schedules:
             run_iso = sched.get_next_run(s.id)
             if run_iso:
-                runs.append((run_iso, zone_dict.get(s.zone_id, "Unknown")))
+                runs.append((run_iso, zone_dict.get(s.zone_id, "Unknown"), {
+                    "skip_if_raining": s.skip_if_raining,
+                    "skip_if_rained_today": s.skip_if_rained_today,
+                    "skip_if_soil_wet": s.skip_if_soil_wet,
+                    "skip_if_frost": s.skip_if_frost,
+                }))
         
         next_run = None
         planned_zone_name = None
+        skips = {
+            "skip_if_raining": False, 
+            "skip_if_rained_today": False, 
+            "skip_if_soil_wet": False, 
+            "skip_if_frost": False
+        }
+        
         if runs:
             runs.sort(key=lambda x: x[0])
             next_run = runs[0][0]
             planned_zone_name = runs[0][1]
+            skips = runs[0][2]
 
-    return next_run, planned_zone_name, zones_data
+    return next_run, planned_zone_name, zones_data, skips
 
 
 async def _check_rained_today() -> bool:
@@ -382,17 +395,22 @@ async def publish_once(http_session: aiohttp.ClientSession) -> None:
     active_zones = irrigation.get_active_zones()
     any_watering = len(active_zones) > 0
 
-    skip = await check_sensors_blocking()
+    # 2. Gather DB data (in thread to avoid blocking asyncio)
+    lang = await asyncio.to_thread(_get_language_sync)
+    next_run, planned_zone_name, all_zones, skips = await asyncio.to_thread(_get_db_data_sync)
+
+    skip = await check_sensors_blocking(
+        skip_if_raining=skips["skip_if_raining"],
+        skip_if_rained_today=skips["skip_if_rained_today"],
+        skip_if_soil_wet=skips["skip_if_soil_wet"],
+        skip_if_frost=skips["skip_if_frost"]
+    )
     rain_blocked = skip in (SkipReason.rain,)
     frost_blocked = skip in (SkipReason.frost,)
 
     rained_today = False
     if rain_blocked:
         rained_today = await _check_rained_today()
-
-    # 2. Gather DB data (in thread to avoid blocking asyncio)
-    lang = await asyncio.to_thread(_get_language_sync)
-    next_run, planned_zone_name, all_zones = await asyncio.to_thread(_get_db_data_sync)
 
     # 3. Resolve display state
     machine_state = _resolve_machine_state(
