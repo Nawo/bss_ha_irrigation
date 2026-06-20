@@ -178,56 +178,6 @@ def _get_db_data_sync() -> tuple[Optional[str], Optional[str], list[dict], dict]
     return next_run, planned_zone_name, zones_data, skips
 
 
-async def _check_rained_today() -> bool:
-    """Check if it rained today — via rain sensors or the weather entity from settings."""
-    local_now = datetime.now().astimezone()
-    local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
-    utc_midnight = local_midnight.astimezone(timezone.utc).replace(tzinfo=None)
-
-    # 1. Check rain sensors (binary on/off)
-    with Session(engine) as session:
-        rain_sensors = session.exec(
-            select(Sensor).where(
-                Sensor.enabled == True,
-                Sensor.skip_if_rained_today == True,
-                Sensor.sensor_type == SensorType.rain,
-            )
-        ).all()
-
-    for sensor in rain_sensors:
-        state = ha_client.get_cached_state(sensor.entity_id)
-        if not state:
-            continue
-        val = str(state.get("state", "")).strip().lower()
-        if val == "on":
-            return True
-        history = await ha_client.get_history(sensor.entity_id, utc_midnight)
-        if any(str(h.get("state")).strip().lower() == "on" for h in history if h):
-            return True
-
-    # 2. Check weather entity from Weather tab settings
-    with Session(engine) as session:
-        rows = session.exec(select(AppSetting)).all()
-        cfg = {r.key: r.value for r in rows}
-
-    entity_id = cfg.get("weather_entity", "")
-    skip_rained = cfg.get("weather_skip_if_rained_today", "false") == "true"
-
-    if skip_rained and entity_id:
-        state = ha_client.get_cached_state(entity_id)
-        if state:
-            val = str(state.get("state", "")).strip().lower()
-            if val not in ("unknown", "unavailable", "none", ""):
-                history = await ha_client.get_history(entity_id, utc_midnight)
-                if val in RAIN_WEATHER_STATES or any(
-                    str(h.get("state")).strip().lower() in RAIN_WEATHER_STATES
-                    for h in history if h
-                ):
-                    return True
-
-    return False
-
-
 # ---------------------------------------------------------------------------
 # State resolution
 # ---------------------------------------------------------------------------
@@ -235,14 +185,11 @@ def _resolve_machine_state(
     active_zones: list[dict],
     rain_blocked: bool,
     frost_blocked: bool,
-    rained_today: bool,
     next_run: Optional[str],
 ) -> str:
     """Determine the machine_state string from current conditions."""
     if active_zones:
         return "active"
-    if rained_today:
-        return "rain_today_blocked"
     if rain_blocked:
         return "rain_blocked"
     if frost_blocked:
@@ -408,13 +355,9 @@ async def publish_once(http_session: aiohttp.ClientSession) -> None:
     rain_blocked = skip in (SkipReason.rain,)
     frost_blocked = skip in (SkipReason.frost,)
 
-    rained_today = False
-    if rain_blocked:
-        rained_today = await _check_rained_today()
-
     # 3. Resolve display state
     machine_state = _resolve_machine_state(
-        active_zones, rain_blocked, frost_blocked, rained_today, next_run
+        active_zones, rain_blocked, frost_blocked, next_run
     )
     active_zone_name = active_zones[0]["zone_name"] if active_zones else None
     display_state = _get_display_state(machine_state, lang, active_zone_name, planned_zone_name)

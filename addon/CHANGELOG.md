@@ -1,5 +1,3 @@
-# Changelog
-
 ## 2.0.0 (Nawo Fork Major Release)
 
 ### ✨ New Features & UI Overhaul

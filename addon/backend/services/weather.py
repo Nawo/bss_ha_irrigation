@@ -3,6 +3,7 @@ Weather service — reads from HA weather entity or Open-Meteo API (free, no key
 """
 import logging
 from typing import Optional
+from datetime import datetime, timezone
 import aiohttp
 
 from backend.services import ha_client
@@ -28,14 +29,14 @@ async def get_forecast(weather_entity_id: Optional[str] = None,
     if lat and lon:
         return await _from_open_meteo(lat, lon)
     return {"condition": "unknown", "temperature": None,
-            "rain_expected_24h": False, "forecast": []}
+            "rain_expected_24h": False, "rain_detected_today": False, "forecast": []}
 
 
 async def _from_ha_entity(entity_id: str) -> dict:
     state = ha_client.get_cached_state(entity_id)
     if not state:
         return {"condition": "unknown", "temperature": None,
-                "rain_expected_24h": False, "forecast": []}
+                "rain_expected_24h": False, "rain_detected_today": False, "forecast": []}
 
     attrs = state.get("attributes", {})
     condition = state.get("state", "unknown")
@@ -83,10 +84,21 @@ async def _from_ha_entity(entity_id: str) -> dict:
 
     rain_expected = condition in rain_conditions or rain_in_forecast
 
+    local_now = datetime.now().astimezone()
+    local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    utc_midnight = local_midnight.astimezone(timezone.utc).replace(tzinfo=None)
+    
+    rain_detected = condition in rain_conditions
+    if not rain_detected:
+        history = await ha_client.get_history(entity_id, utc_midnight)
+        if any(str(h.get("state")).strip().lower() in rain_conditions for h in history if h):
+            rain_detected = True
+
     return {
         "condition": condition,
         "temperature": temp,
         "rain_expected_24h": rain_expected,
+        "rain_detected_today": rain_detected,
         "forecast": forecast,
     }
 
@@ -96,7 +108,7 @@ async def _from_open_meteo(lat: float, lon: float) -> dict:
         "latitude": lat,
         "longitude": lon,
         "current": "temperature_2m,weathercode",
-        "hourly": "weathercode",
+        "hourly": "temperature_2m,weathercode",
         "forecast_days": 1,
     }
     try:
@@ -107,8 +119,13 @@ async def _from_open_meteo(lat: float, lon: float) -> dict:
         current = data.get("current", {})
         temp = current.get("temperature_2m")
         hourly_codes = data.get("hourly", {}).get("weathercode", [])
+        hourly_temps = data.get("hourly", {}).get("temperature_2m", [])
         rain_codes = set(range(51, 68)) | set(range(80, 83)) | set(range(95, 100))
+        
         rain_expected = any(c in rain_codes for c in hourly_codes)
+        
+        current_hour = datetime.now().astimezone().hour
+        rain_detected = any(c in rain_codes for c in hourly_codes[:current_hour + 1])
 
         forecast = []
         hourly_time = data.get("hourly", {}).get("time", [])
@@ -116,19 +133,20 @@ async def _from_open_meteo(lat: float, lon: float) -> dict:
             forecast.append({
                 "datetime": hourly_time[i] if i < len(hourly_time) else None,
                 "condition": _wmo_to_condition(code),
-                "temperature": None,
+                "temperature": hourly_temps[i] if i < len(hourly_temps) else None,
             })
 
         return {
             "condition": _wmo_to_condition(current.get("weathercode", 0)),
             "temperature": temp,
             "rain_expected_24h": rain_expected,
+            "rain_detected_today": rain_detected,
             "forecast": forecast,
         }
     except Exception as e:
         logger.error(f"Open-Meteo fetch failed: {e}")
         return {"condition": "unknown", "temperature": None,
-                "rain_expected_24h": False, "forecast": []}
+                "rain_expected_24h": False, "rain_detected_today": False, "forecast": []}
 
 
 def _wmo_to_condition(code: int) -> str:

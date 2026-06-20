@@ -387,8 +387,8 @@ async def _check_weather_blocking(skip_if_raining: bool, skip_if_rained_today: b
         logger.info(f"Weather block: current condition is {weather_data.get('condition')} (source: {weather_source})")
         return SkipReason.rain
 
-    if skip_if_rained_today and weather_data.get("rain_expected_24h"):
-        logger.info(f"Weather block: rain expected/detected today (source: {weather_source})")
+    if skip_if_rained_today and weather_data.get("rain_detected_today"):
+        logger.info(f"Weather block: rain detected today (source: {weather_source})")
         return SkipReason.rain
 
     return None
