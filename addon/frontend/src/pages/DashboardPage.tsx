@@ -61,9 +61,30 @@ export default function DashboardPage() {
   }, [availableStartZones, quickZoneId])
 
   const nextScheduleForZone = (zoneId: number): Schedule | null => {
-    const zoneSchedules = schedules.filter(s => s.zone_id === zoneId && s.enabled && s.next_run)
+    const zoneSchedules = schedules.filter(s => s.enabled && s.next_run && s.all_zone_ids?.includes(zoneId))
     if (!zoneSchedules.length) return null
-    const sorted = [...zoneSchedules].sort((a, b) =>
+
+    const effectiveSchedules = zoneSchedules.map(s => {
+      let offsetMs = 0
+      if (s.mode === 'sequential' && s.all_zone_ids) {
+        const idx = s.all_zone_ids.indexOf(zoneId)
+        if (idx > 0) {
+          for (let i = 0; i < idx; i++) {
+            const priorZone = zones.find(z => z.id === s.all_zone_ids![i])
+            if (priorZone) {
+              const dur = s.duration_override_min ?? priorZone.duration_min
+              offsetMs += dur * 60000
+            }
+          }
+        }
+      }
+      return {
+        ...s,
+        next_run: new Date(new Date(s.next_run!).getTime() + offsetMs).toISOString()
+      }
+    })
+
+    const sorted = effectiveSchedules.sort((a, b) =>
       new Date(a.next_run!).getTime() - new Date(b.next_run!).getTime()
     )
     return sorted[0]

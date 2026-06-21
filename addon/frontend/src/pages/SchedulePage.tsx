@@ -255,16 +255,44 @@ export default function SchedulePage() {
 
               {/* Next run + live countdown */}
               {sch.next_run && (
-                <div className="mt-2 space-y-1">
-                  <p className="text-xs text-gray-600">
-                    {t('schedule.nextRun')}: {new Date(sch.next_run).toLocaleString()}
+                <div className="mt-2 space-y-1 bg-gray-50/50 dark:bg-gray-800/20 p-2 rounded">
+                  <p className="text-xs text-gray-500 font-medium mb-1">
+                    {t('schedule.nextRun')}:
                   </p>
-                  <div className="flex items-center gap-2">
-                    <CountdownDisplay isoTarget={sch.next_run} skipped={sch.next_run_will_be_skipped} />
-                    {sch.next_run_will_be_skipped && (
-                      <StatusBadge variant="red">{t('schedule.skippedDueToRain')}</StatusBadge>
-                    )}
-                  </div>
+                  {sch.all_zone_ids?.map((zid, idx) => {
+                    const z = zones.find(x => x.id === zid)
+                    if (!z) return null
+                    let offsetMs = 0
+                    if (sch.mode === 'sequential') {
+                      for (let i = 0; i < idx; i++) {
+                        const pz = zones.find(x => x.id === sch.all_zone_ids![i])
+                        if (pz) offsetMs += (sch.duration_override_min ?? pz.duration_min) * 60000
+                      }
+                    } else if (idx > 0) {
+                      return null // For parallel, we only show the first one
+                    }
+                    const zoneNextRun = new Date(new Date(sch.next_run!).getTime() + offsetMs).toISOString()
+                    return (
+                      <div key={idx} className="flex items-center justify-between text-xs py-0.5">
+                        <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                          {sch.mode === 'sequential' && (
+                            <>
+                              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: z.color }} />
+                              <span>{z.name}</span>
+                              <span className="text-gray-400 dark:text-gray-600 mx-1">•</span>
+                            </>
+                          )}
+                          <span>{new Date(zoneNextRun).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CountdownDisplay isoTarget={zoneNextRun} skipped={sch.next_run_will_be_skipped} />
+                          {sch.next_run_will_be_skipped && idx === 0 && (
+                            <StatusBadge variant="red">{t('schedule.skippedDueToRain')}</StatusBadge>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
 
