@@ -161,7 +161,9 @@
       "fri": "Fri",
       "sat": "Sat",
       "sun": "Sun"
-    }
+    },
+    "smartWatering": "Smart Watering (ET0)",
+    "forceWatering": "Water anyway"
   },
   "weather": {
     "title": "Weather",

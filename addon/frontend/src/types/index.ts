@@ -54,6 +54,8 @@ export interface Schedule {
   skip_if_rained_today: boolean
   skip_if_soil_wet: boolean
   skip_if_frost: boolean
+  force_next_run?: boolean
+  smart_watering?: boolean
   next_run?: string
   next_run_will_be_skipped?: boolean
   next_run_skipped_reason?: string

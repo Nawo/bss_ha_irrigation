@@ -1,3 +1,7 @@
+## 3.4
+- **Smart Watering (ET0)**: Added dynamic watering duration adjustment based on Evapotranspiration (ET0) from Open-Meteo. The system now automatically scales the watering time up or down depending on temperature, sun, and recent rainfall.
+- **Force Run ("Podlej mimo to")**: Added the ability to manually override a skipped schedule. If a schedule is blocked by rain or soil sensors, a new "Water anyway" button appears next to the skipped badge, allowing you to force the scheduled run once.
+
 ## 2.0.0 (Nawo Fork Major Release)
 
 ### ✨ New Features & UI Overhaul

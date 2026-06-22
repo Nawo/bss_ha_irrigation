@@ -129,6 +129,13 @@ export default function DashboardPage() {
     } catch {}
   }
 
+  const forceRun = async (sch: Schedule) => {
+    try {
+      await schedulesApi.update(sch.id, { force_next_run: true })
+      await schedulesApi.list().then(setSchedules)
+    } catch {}
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-bold text-gray-900 dark:text-white">{t('dashboard.title')}</h1>
@@ -266,7 +273,13 @@ export default function DashboardPage() {
                       </span>
                       <CountdownDisplay isoTarget={nextSchedule.next_run!} skipped={nextSchedule.next_run_will_be_skipped} />
                       {nextSchedule.next_run_will_be_skipped && (
-                        <StatusBadge variant="red">{t('schedule.skippedDueToRain')}</StatusBadge>
+                        <div className="flex items-center gap-1.5 ml-auto">
+                          <StatusBadge variant="red">{t('schedule.skippedDueToRain')}</StatusBadge>
+                          <button onClick={() => forceRun(nextSchedule)}
+                            className="text-[10px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors">
+                            {t('schedule.forceWatering')}
+                          </button>
+                        </div>
                       )}
                     </div>
                   )}

@@ -161,7 +161,9 @@
       "fri": "Pt",
       "sat": "Sob",
       "sun": "Nd"
-    }
+    },
+    "smartWatering": "Smart Watering (ET0)",
+    "forceWatering": "Podlej mimo to"
   },
   "weather": {
     "title": "Pogoda",

@@ -401,7 +401,8 @@ async def start_zone(zone_id: int, duration_min: Optional[int] = None,
                      skip_if_raining: bool = True,
                      skip_if_rained_today: bool = True,
                      skip_if_soil_wet: bool = True,
-                     skip_if_frost: bool = True) -> dict:
+                     skip_if_frost: bool = True,
+                     smart_watering: bool = False) -> dict:
     with Session(engine) as session:
         zone = session.get(Zone, zone_id)
         if not zone:
@@ -420,6 +421,33 @@ async def start_zone(zone_id: int, duration_min: Optional[int] = None,
         valve_ids = [v.id for v in valves]
         valve_entities = [v.entity_id for v in valves]
         zone_name = zone.name
+
+    if smart_watering:
+        try:
+            from backend.config import settings
+            from backend.services.weather import get_et0_data
+            lat = settings.weather_lat if settings.weather_lat is not None else 52.2297
+            lon = settings.weather_lon if settings.weather_lon is not None else 21.0122
+            et_data = await get_et0_data(lat, lon)
+            et0 = et_data.get("et0", 0)
+            precip = et_data.get("precipitation", 0)
+            
+            # Simple ET0 based scaling formula:
+            # Baseline summer day ET0 is ~4.0 mm. 
+            # Effective demand = ET0 - Precipitation
+            effective_demand = max(0, et0 - precip)
+            scale = effective_demand / 4.0
+            scale = max(0.0, min(1.5, scale)) # Cap between 0% and 150%
+            
+            old_duration = duration
+            duration = int(old_duration * scale)
+            logger.info(f"Smart Watering: ET0={et0}mm, Precip={precip}mm. Scale={scale:.2f}. Adjusted duration {old_duration}m -> {duration}m")
+            
+            if duration <= 0:
+                logger.info(f"Smart Watering: Skipping zone {zone_id} because effective water demand is 0")
+                return {"ok": False, "skipped": True, "skip_reason": "smart_watering"}
+        except Exception as e:
+            logger.warning(f"Smart Watering calculation failed: {e}")
 
     if not skip_sensor_check and triggered_by != TriggerSource.manual:
         skip = await check_sensors_blocking(

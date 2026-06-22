@@ -153,6 +153,8 @@ async def _from_open_meteo(lat: float, lon: float) -> dict:
                 "condition": _wmo_to_condition(hourly_codes[i]),
                 "temperature": hourly_temps[i] if i < len(hourly_temps) else None,
             })
+            
+        rain_detected = any(c in rain_codes for c in hourly_codes[:current_hour + 1])
 
         return {
             "condition": _wmo_to_condition(current.get("weathercode", 0)),
@@ -179,3 +181,26 @@ def _wmo_to_condition(code: int) -> str:
     if code in range(95, 100):
         return "lightning-rainy"
     return "cloudy"
+
+async def get_et0_data(lat: float, lon: float) -> dict:
+    """Fetch ET0 (Evapotranspiration) and precipitation sum for the current day from Open-Meteo."""
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "daily": "et0_fao_evapotranspiration,precipitation_sum",
+        "timezone": "auto",
+        "forecast_days": 1,
+    }
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as s:
+            async with s.get("https://api.open-meteo.com/v1/forecast", params=params, timeout=10) as resp:
+                data = await resp.json()
+        daily = data.get("daily", {})
+        et0 = daily.get("et0_fao_evapotranspiration", [0])[0]
+        precip = daily.get("precipitation_sum", [0])[0]
+        return {"et0": et0, "precipitation": precip}
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to fetch ET0 data: {e}")
+        return {"et0": 0, "precipitation": 0}

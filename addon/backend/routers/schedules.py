@@ -29,12 +29,15 @@ async def _enrich(schedule: Schedule, session: Session) -> ScheduleRead:
 
             # If the scheduled run is today
             if local_next_run.date() == local_now.date():
-                skip = await check_sensors_blocking(
-                    skip_if_raining=schedule.skip_if_raining,
-                    skip_if_rained_today=schedule.skip_if_rained_today,
-                    skip_if_soil_wet=schedule.skip_if_soil_wet,
-                    skip_if_frost=schedule.skip_if_frost,
-                )
+                if schedule.force_next_run:
+                    skip = None
+                else:
+                    skip = await check_sensors_blocking(
+                        skip_if_raining=schedule.skip_if_raining,
+                        skip_if_rained_today=schedule.skip_if_rained_today,
+                        skip_if_soil_wet=schedule.skip_if_soil_wet,
+                        skip_if_frost=schedule.skip_if_frost,
+                    )
                 if skip:
                     sr.next_run_will_be_skipped = True
                     sr.next_run_skipped_reason = skip.value

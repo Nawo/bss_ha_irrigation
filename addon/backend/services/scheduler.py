@@ -39,10 +39,17 @@ async def _fire_schedule(schedule_id: int):
         skip_if_frost = schedule.skip_if_frost
         duration_override = schedule.duration_override_min
         mode = schedule.mode
+        force_next_run = schedule.force_next_run
+        smart_watering = schedule.smart_watering
+
+        if force_next_run:
+            schedule.force_next_run = False
+            session.add(schedule)
+            session.commit()
 
     logger.info(
         f"Scheduler firing: schedule_id={schedule_id} zones={zone_ids} "
-        f"mode={mode} ({zone_name} + {len(zone_ids)-1} more)"
+        f"mode={mode} ({zone_name} + {len(zone_ids)-1} more) force={force_next_run} smart={smart_watering}"
     )
 
     if mode == "sequential" or len(zone_ids) > 1:
@@ -52,12 +59,14 @@ async def _fire_schedule(schedule_id: int):
                 zone_id=zid,
                 duration_min=duration_override,
                 triggered_by=TriggerSource.schedule,
+                skip_sensor_check=force_next_run,
                 skip_if_raining=skip_if_raining,
                 skip_if_rained_today=skip_if_rained_today,
                 skip_if_soil_wet=skip_if_soil_wet,
                 skip_if_frost=skip_if_frost,
+                smart_watering=smart_watering,
             )
-            if not result.get("ok"):
+            if not result.get("ok") and not result.get("skipped"):
                 logger.warning(f"Schedule {schedule_id} zone {zid} skipped/failed: {result}")
                 if result.get("skipped"):
                     # Sensor block applies globally — skip remaining zones too
@@ -76,10 +85,12 @@ async def _fire_schedule(schedule_id: int):
             zone_id=zone_ids[0],
             duration_min=duration_override,
             triggered_by=TriggerSource.schedule,
+            skip_sensor_check=force_next_run,
             skip_if_raining=skip_if_raining,
             skip_if_rained_today=skip_if_rained_today,
             skip_if_soil_wet=skip_if_soil_wet,
             skip_if_frost=skip_if_frost,
+            smart_watering=smart_watering,
         )
         if not result.get("ok"):
             logger.warning(f"Schedule {schedule_id} skipped: {result}")

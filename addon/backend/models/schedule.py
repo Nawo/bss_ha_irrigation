@@ -22,6 +22,8 @@ class ScheduleBase(SQLModel):
     skip_if_rained_today: bool = Field(default=True)
     skip_if_soil_wet: bool = Field(default=True)
     skip_if_frost: bool = Field(default=True)
+    force_next_run: bool = Field(default=False)
+    smart_watering: bool = Field(default=False)
 
 
 class Schedule(ScheduleBase, table=True):
@@ -56,6 +58,8 @@ class ScheduleUpdate(SQLModel):
     skip_if_rained_today: Optional[bool] = None
     skip_if_soil_wet: Optional[bool] = None
     skip_if_frost: Optional[bool] = None
+    force_next_run: Optional[bool] = None
+    smart_watering: Optional[bool] = None
 
 
 class ScheduleRead(ScheduleBase):

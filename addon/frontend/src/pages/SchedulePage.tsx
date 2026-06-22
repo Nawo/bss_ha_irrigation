@@ -145,10 +145,17 @@ function ScheduleForm({ initial, zones, onSave, onCancel }: {
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-2">
-        <input type="checkbox" id="sch-en" checked={!!form.enabled}
-          onChange={e => set('enabled', e.target.checked)} className="w-4 h-4 accent-primary-500" />
-        <label htmlFor="sch-en" className="text-sm text-gray-300">{t('common.enabled')}</label>
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <input type="checkbox" id="sch-en" checked={!!form.enabled}
+            onChange={e => set('enabled', e.target.checked)} className="w-4 h-4 accent-primary-500" />
+          <label htmlFor="sch-en" className="text-sm text-gray-300">{t('common.enabled')}</label>
+        </div>
+        <div className="flex items-center gap-2">
+          <input type="checkbox" id="sch-smart" checked={!!form.smart_watering}
+            onChange={e => set('smart_watering', e.target.checked)} className="w-4 h-4 accent-primary-500" />
+          <label htmlFor="sch-smart" className="text-sm text-primary-400 font-medium">{t('schedule.smartWatering')}</label>
+        </div>
       </div>
       <div className="flex gap-3 justify-end pt-2 border-t border-gray-200 dark:border-gray-800">
         <button type="button" onClick={onCancel} className="btn-secondary btn-sm">{t('common.cancel')}</button>
@@ -191,6 +198,11 @@ export default function SchedulePage() {
     await load(); setModal(null)
   }
 
+  const forceRun = async (sch: Schedule) => {
+    await schedulesApi.update(sch.id, { force_next_run: true })
+    await load()
+  }
+
   const remove = async () => {
     if (!deleteTarget) return
     await schedulesApi.remove(deleteTarget.id); await load(); setDeleteTarget(null)
@@ -205,28 +217,33 @@ export default function SchedulePage() {
         </button>
       </div>
 
-      {loading ? <p className="text-gray-500 text-sm">{t('common.loading')}</p>
-      : schedules.length === 0 ? (
-        <div className="card text-center py-14 text-gray-600">
-          <CalendarDays size={36} className="mx-auto mb-3 opacity-40" />
-          <p className="text-sm">{t('common.noData')}</p>
-        </div>
+      {loading ? (
+        <div className="text-gray-500 animate-pulse text-sm">{t('common.loading')}</div>
+      ) : schedules.length === 0 ? (
+        <div className="text-gray-500 text-sm">{t('schedule.noSchedules')}</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid gap-3">
           {schedules.map(sch => (
-            <div key={sch.id} className="card hover:border-gray-700 transition-colors">
-              <div className="flex items-start justify-between mb-3">
-                <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-gray-900 dark:text-white text-lg">{sch.start_time}</div>
+            <div key={sch.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 shadow-sm">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <h3 className="font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                    {sch.start_time}
+                    {sch.smart_watering && (
+                      <span className="text-primary-500" title={t('schedule.smartWatering')}>💧</span>
+                    )}
+                  </h3>
                   {sch.all_zone_ids && sch.all_zone_ids.length > 1 ? (
-                    <div className="flex flex-wrap gap-1 mt-1">
+                    <div className="flex gap-1.5 flex-wrap mt-1">
                       {sch.all_zone_ids.map((zid, idx) => {
                         const z = zones.find(x => x.id === zid)
-                        return z ? (
-                          <span key={zid} className="inline-flex items-center gap-1 text-xs bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded">
-                            <span className="text-gray-500">{idx + 1}.</span> {z.name}
-                          </span>
-                        ) : null
+                        if (!z) return null
+                        return (
+                          <div key={idx} className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-xs">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: z.color }} />
+                            {z.name}
+                          </div>
+                        )
                       })}
                     </div>
                   ) : (
@@ -256,8 +273,17 @@ export default function SchedulePage() {
               {/* Next run + live countdown */}
               {sch.next_run && (
                 <div className="mt-2 space-y-1 bg-gray-50/50 dark:bg-gray-800/20 p-2 rounded">
-                  <p className="text-xs text-gray-500 font-medium mb-1">
-                    {t('schedule.nextRun')}:
+                  <p className="text-xs text-gray-500 font-medium mb-1 flex items-center justify-between">
+                    <span>{t('schedule.nextRun')}:</span>
+                    {sch.next_run_will_be_skipped && (
+                      <div className="flex items-center gap-2">
+                        <StatusBadge variant="red">{t('schedule.skippedDueToRain')}</StatusBadge>
+                        <button onClick={() => forceRun(sch)}
+                          className="text-[10px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors">
+                          {t('schedule.forceWatering')}
+                        </button>
+                      </div>
+                    )}
                   </p>
                   {sch.all_zone_ids?.map((zid, idx) => {
                     const z = zones.find(x => x.id === zid)
@@ -286,9 +312,6 @@ export default function SchedulePage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <CountdownDisplay isoTarget={zoneNextRun} skipped={sch.next_run_will_be_skipped} />
-                          {sch.next_run_will_be_skipped && idx === 0 && (
-                            <StatusBadge variant="red">{t('schedule.skippedDueToRain')}</StatusBadge>
-                          )}
                         </div>
                       </div>
                     )

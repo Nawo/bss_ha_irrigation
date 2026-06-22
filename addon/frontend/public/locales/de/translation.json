@@ -161,7 +161,9 @@
       "fri": "Fr",
       "sat": "Sa",
       "sun": "So"
-    }
+    },
+    "smartWatering": "Smart Watering (ET0)",
+    "forceWatering": "Trotzdem bewässern"
   },
   "weather": {
     "title": "Wetter",
