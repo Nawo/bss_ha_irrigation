@@ -424,24 +424,12 @@ async def start_zone(zone_id: int, duration_min: Optional[int] = None,
 
     if smart_watering:
         try:
-            from backend.config import settings
-            from backend.services.weather import get_et0_data
-            lat = settings.weather_lat if settings.weather_lat is not None else 52.2297
-            lon = settings.weather_lon if settings.weather_lon is not None else 21.0122
-            et_data = await get_et0_data(lat, lon)
-            et0 = et_data.get("et0", 0)
-            precip = et_data.get("precipitation", 0)
-            
-            # Simple ET0 based scaling formula:
-            # Baseline summer day ET0 is ~4.0 mm. 
-            # Effective demand = ET0 - Precipitation
-            effective_demand = max(0, et0 - precip)
-            scale = effective_demand / 4.0
-            scale = max(0.0, min(1.5, scale)) # Cap between 0% and 150%
+            from backend.services.weather import get_smart_scale
+            scale = await get_smart_scale()
             
             old_duration = duration
             duration = int(old_duration * scale)
-            logger.info(f"Smart Watering: ET0={et0}mm, Precip={precip}mm. Scale={scale:.2f}. Adjusted duration {old_duration}m -> {duration}m")
+            logger.info(f"Smart Watering: Scale={scale:.2f}. Adjusted duration {old_duration}m -> {duration}m")
             
             if duration <= 0:
                 logger.info(f"Smart Watering: Skipping zone {zone_id} because effective water demand is 0")

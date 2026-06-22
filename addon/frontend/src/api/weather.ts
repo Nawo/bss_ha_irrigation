@@ -10,6 +10,10 @@ export const weatherApi = {
     const r = await client.get<WeatherData>('/api/weather', { params })
     return r.data
   },
+  getEt0: async () => {
+    const r = await client.get<{scale: number}>('/api/weather/et0')
+    return r.data
+  },
 }
 
 export const haEntitiesApi = {

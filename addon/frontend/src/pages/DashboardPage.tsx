@@ -6,6 +6,7 @@ import { zonesApi } from '../api/zones'
 import { sensorsApi } from '../api/sensors'
 import { schedulesApi } from '../api/schedules'
 import { irrigationApi } from '../api/irrigation'
+import { weatherApi } from '../api/weather'
 import type { Zone, Sensor, Schedule } from '../types'
 import StatusBadge from '../components/common/StatusBadge'
 import CountdownDisplay from '../components/common/CountdownDisplay'
@@ -31,11 +32,14 @@ export default function DashboardPage() {
   const [startModalZone, setStartModalZone] = useState<Zone | null>(null)
   const [startModalDuration, setStartModalDuration] = useState<number>(15)
   const [startModalForce, setStartModalForce] = useState<boolean>(false)
+  const [smartScale, setSmartScale] = useState<number>(1)
 
   useEffect(() => {
     zonesApi.list().then(setZones).catch(() => {})
     sensorsApi.list().then(setSensors).catch(() => {})
     schedulesApi.list().then(setSchedules).catch(() => {})
+    
+    weatherApi.getEt0().then(res => setSmartScale(res.scale)).catch(() => {})
 
     const id = setInterval(() => {
       schedulesApi.list().then(setSchedules).catch(() => {})
@@ -72,7 +76,8 @@ export default function DashboardPage() {
           for (let i = 0; i < idx; i++) {
             const priorZone = zones.find(z => z.id === s.all_zone_ids![i])
             if (priorZone) {
-              const dur = s.duration_override_min ?? priorZone.duration_min
+              let dur = s.duration_override_min ?? priorZone.duration_min
+              if (s.smart_watering) dur = Math.floor(dur * smartScale)
               offsetMs += dur * 60000
             }
           }
@@ -247,6 +252,16 @@ export default function DashboardPage() {
               const isActive = activeZones.some(a => a.zone_id === zone.id)
               const activeInfo = activeZones.find(a => a.zone_id === zone.id)
               const nextSchedule = nextScheduleForZone(zone.id)
+              let displayDuration = zone.duration_min
+              let isEstimated = false
+              if (nextSchedule) {
+                displayDuration = nextSchedule.duration_override_min ?? zone.duration_min
+                if (nextSchedule.smart_watering) {
+                  displayDuration = Math.floor(displayDuration * smartScale)
+                  isEstimated = true
+                }
+              }
+              
               return (
                 <div key={zone.id}
                   className={`card transition-colors ${isActive ? 'border-primary-700' : 'hover:border-gray-700'}`}>
@@ -260,8 +275,8 @@ export default function DashboardPage() {
                     <span className="flex items-center gap-1">
                       <Zap size={11} />{zone.valve_count} {t('zones.valveCount').toLowerCase()}
                     </span>
-                    <span className="flex items-center gap-1">
-                      <Clock size={11} />{zone.duration_min} min
+                    <span className="flex items-center gap-1" title={isEstimated ? t('schedule.smartWatering') : ''}>
+                      <Clock size={11} />{isEstimated ? `~${displayDuration}` : displayDuration} min
                     </span>
                   </div>
 

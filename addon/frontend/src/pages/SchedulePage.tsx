@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Plus, Pencil, Trash2, CalendarDays, Timer } from 'lucide-react'
 import { schedulesApi } from '../api/schedules'
 import { zonesApi } from '../api/zones'
+import { weatherApi } from '../api/weather'
 import type { Schedule, Zone, WateringMode } from '../types'
 import Modal from '../components/common/Modal'
 import ConfirmDialog from '../components/common/ConfirmDialog'
@@ -176,11 +177,16 @@ export default function SchedulePage() {
   const [modal, setModal] = useState<'add' | 'edit' | null>(null)
   const [selected, setSelected] = useState<Schedule | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Schedule | null>(null)
+  const [smartScale, setSmartScale] = useState<number>(1)
 
-  const load = useCallback(() => Promise.all([
-    schedulesApi.list().then(setSchedules),
-    zonesApi.list().then(setZones),
-  ]).finally(() => setLoading(false)), [])
+  const load = useCallback(() => {
+    weatherApi.getEt0().then(res => setSmartScale(res.scale)).catch(() => {})
+
+    return Promise.all([
+      schedulesApi.list().then(setSchedules),
+      zonesApi.list().then(setZones),
+    ]).finally(() => setLoading(false))
+  }, [])
 
   useEffect(() => { load() }, [load])
 
@@ -265,7 +271,11 @@ export default function SchedulePage() {
                 ))}
               </div>
               <div className="flex flex-wrap gap-2 text-xs">
-                {sch.duration_override_min && <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded">{sch.duration_override_min} min</span>}
+                {sch.duration_override_min && (
+                  <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded" title={sch.smart_watering ? t('schedule.smartWatering') : ''}>
+                    {sch.smart_watering ? `~${Math.floor(sch.duration_override_min * smartScale)}` : sch.duration_override_min} min
+                  </span>
+                )}
                 <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded">{t(`schedule.modes.${sch.mode}`).split(' ')[0]}</span>
                 {!sch.enabled && <StatusBadge variant="gray">{t('common.disabled')}</StatusBadge>}
               </div>
@@ -292,7 +302,11 @@ export default function SchedulePage() {
                     if (sch.mode === 'sequential') {
                       for (let i = 0; i < idx; i++) {
                         const pz = zones.find(x => x.id === sch.all_zone_ids![i])
-                        if (pz) offsetMs += (sch.duration_override_min ?? pz.duration_min) * 60000
+                        if (pz) {
+                          let dur = sch.duration_override_min ?? pz.duration_min
+                          if (sch.smart_watering) dur = Math.floor(dur * smartScale)
+                          offsetMs += dur * 60000
+                        }
                       }
                     } else if (idx > 0) {
                       return null // For parallel, we only show the first one

@@ -182,8 +182,17 @@ def _wmo_to_condition(code: int) -> str:
         return "lightning-rainy"
     return "cloudy"
 
+import time
+
+_et0_cache = {"data": {"et0": 0, "precipitation": 0}, "timestamp": 0}
+
 async def get_et0_data(lat: float, lon: float) -> dict:
-    """Fetch ET0 (Evapotranspiration) and precipitation sum for the current day from Open-Meteo."""
+    """Fetch ET0 (Evapotranspiration) and precipitation sum for the current day from Open-Meteo with 1h cache."""
+    global _et0_cache
+    now = time.time()
+    if now - _et0_cache["timestamp"] < 3600:
+        return _et0_cache["data"]
+
     params = {
         "latitude": lat,
         "longitude": lon,
@@ -199,8 +208,22 @@ async def get_et0_data(lat: float, lon: float) -> dict:
         daily = data.get("daily", {})
         et0 = daily.get("et0_fao_evapotranspiration", [0])[0]
         precip = daily.get("precipitation_sum", [0])[0]
-        return {"et0": et0, "precipitation": precip}
+        result = {"et0": et0, "precipitation": precip}
+        _et0_cache = {"data": result, "timestamp": now}
+        return result
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning(f"Failed to fetch ET0 data: {e}")
         return {"et0": 0, "precipitation": 0}
+
+async def get_smart_scale() -> float:
+    from backend.config import settings
+    lat = settings.weather_lat if settings.weather_lat is not None else 52.2297
+    lon = settings.weather_lon if settings.weather_lon is not None else 21.0122
+    et_data = await get_et0_data(lat, lon)
+    et0 = et_data.get("et0", 0)
+    precip = et_data.get("precipitation", 0)
+    
+    effective_demand = max(0, et0 - precip)
+    scale = effective_demand / 4.0
+    return max(0.0, min(1.5, scale))
