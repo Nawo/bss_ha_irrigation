@@ -74,7 +74,19 @@
     "stopZone": "Stop",
     "isWatering": "Watering...",
     "noValves": "No valves",
-    "assignValvesHint": "No valves assigned — go to Valves to assign them to this section."
+    "assignValvesHint": "No valves assigned — go to Valves to assign them to this section.",
+    "calculator": "Baseline Time Calculator 🧮",
+    "area": "Zone Area (m²)",
+    "flow": "Flow Rate (L/min)",
+    "soilType": "Soil Type",
+    "sunExposure": "Sun Exposure",
+    "soilSand": "Sand (dries fast)",
+    "soilLoam": "Loam (universal)",
+    "soilClay": "Clay (holds moisture)",
+    "sunFull": "Full Sun",
+    "sunPartial": "Partial Shade",
+    "sunShade": "Shade",
+    "calculateBtn": "Calculate"
   },
   "valves": {
     "title": "Valves",

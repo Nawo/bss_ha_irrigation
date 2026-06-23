@@ -74,7 +74,19 @@
     "stopZone": "Stoppen",
     "isWatering": "Bewässert...",
     "noValves": "Keine Ventile",
-    "assignValvesHint": "Keine Ventile zugewiesen — gehe zu Ventile, um sie dieser Sektion zuzuweisen."
+    "assignValvesHint": "Keine Ventile zugewiesen — gehen Sie zu Ventile, um sie diesem Bereich zuzuweisen.",
+    "calculator": "Basiszeit-Rechner 🧮",
+    "area": "Zonenfläche (m²)",
+    "flow": "Durchflussrate (L/min)",
+    "soilType": "Bodenart",
+    "sunExposure": "Sonneneinstrahlung",
+    "soilSand": "Sand (trocknet schnell)",
+    "soilLoam": "Lehm (universal)",
+    "soilClay": "Ton (hält Feuchtigkeit)",
+    "sunFull": "Volle Sonne",
+    "sunPartial": "Halbschatten",
+    "sunShade": "Schatten",
+    "calculateBtn": "Berechnen"
   },
   "valves": {
     "title": "Ventile",

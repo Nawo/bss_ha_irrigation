@@ -74,7 +74,19 @@
     "stopZone": "Zatrzymaj",
     "isWatering": "Podlewa...",
     "noValves": "Brak zaworów",
-    "assignValvesHint": "Brak przypisanych zaworów — przejdź do Zaworów, aby przypisać je do tej sekcji."
+    "assignValvesHint": "Brak przypisanych zaworów — przejdź do Zaworów, aby przypisać je do tej sekcji.",
+    "calculator": "Kalkulator Czasu Bazowego 🧮",
+    "area": "Powierzchnia strefy (m²)",
+    "flow": "Wydajność / przepływ (L/min)",
+    "soilType": "Rodzaj gleby",
+    "sunExposure": "Nasłonecznienie",
+    "soilSand": "Piasek (szybko schnie)",
+    "soilLoam": "Ziemia uniwersalna",
+    "soilClay": "Glina (trzyma wilgoć)",
+    "sunFull": "Pełne słońce",
+    "sunPartial": "Półcień",
+    "sunShade": "Cień",
+    "calculateBtn": "Przelicz"
   },
   "valves": {
     "title": "Zawory",

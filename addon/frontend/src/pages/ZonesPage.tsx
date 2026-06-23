@@ -23,6 +23,7 @@ function ZoneForm({ initial, onSave, onCancel }: {
   })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
+  const [showCalc, setShowCalc] = useState(false)
   const set = (k: keyof Zone, v: unknown) => setForm(f => ({ ...f, [k]: v }))
 
   const submit = async (e: React.FormEvent) => {
@@ -30,6 +31,23 @@ function ZoneForm({ initial, onSave, onCancel }: {
     try { await onSave(form) }
     catch (e: unknown) { setErr(e instanceof Error ? e.message : String(e)) }
     finally { setSaving(false) }
+  }
+
+  const calculateBaseTime = () => {
+    if (!form.area_m2 || !form.flow_lpm) return
+    const targetLiters = form.area_m2 * 4.0
+    
+    let efficiency = 0.8
+    if (form.soil_type === 'sand') efficiency = 0.7
+    else if (form.soil_type === 'clay') efficiency = 0.85
+    
+    let exposure = 1.0
+    if (form.sun_exposure === 'partial') exposure = 0.8
+    else if (form.sun_exposure === 'shade') exposure = 0.6
+    
+    const requiredLiters = (targetLiters / efficiency) * exposure
+    const min = Math.round(requiredLiters / form.flow_lpm)
+    set('duration_min', Math.max(1, Math.min(240, min)))
   }
 
   return (
@@ -62,6 +80,48 @@ function ZoneForm({ initial, onSave, onCancel }: {
           <input className="input" type="number" min={0}
             value={form.sequence_order || 0} onChange={e => set('sequence_order', Number(e.target.value))} />
         </div>
+      </div>
+
+      <div className="border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden">
+        <button type="button" onClick={() => setShowCalc(!showCalc)} className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800/50 text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex justify-between items-center">
+          <span>{t('zones.calculator')}</span>
+          <span className="text-xs text-gray-500">{showCalc ? '▼' : '▶'}</span>
+        </button>
+        {showCalc && (
+          <div className="p-3 bg-white dark:bg-gray-900 space-y-3 border-t border-gray-200 dark:border-gray-800">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label text-xs">{t('zones.area')}</label>
+                <input className="input py-1 text-sm" type="number" min={0.1} step={0.1} placeholder="100"
+                  value={form.area_m2 || ''} onChange={e => set('area_m2', e.target.value ? Number(e.target.value) : undefined)} />
+              </div>
+              <div>
+                <label className="label text-xs">{t('zones.flow')}</label>
+                <input className="input py-1 text-sm" type="number" min={0.1} step={0.1} placeholder="15.5"
+                  value={form.flow_lpm || ''} onChange={e => set('flow_lpm', e.target.value ? Number(e.target.value) : undefined)} />
+              </div>
+              <div>
+                <label className="label text-xs">{t('zones.soilType')}</label>
+                <select className="input py-1 text-sm" value={form.soil_type || 'loam'} onChange={e => set('soil_type', e.target.value)}>
+                  <option value="sand">{t('zones.soilSand')}</option>
+                  <option value="loam">{t('zones.soilLoam')}</option>
+                  <option value="clay">{t('zones.soilClay')}</option>
+                </select>
+              </div>
+              <div>
+                <label className="label text-xs">{t('zones.sunExposure')}</label>
+                <select className="input py-1 text-sm" value={form.sun_exposure || 'full'} onChange={e => set('sun_exposure', e.target.value)}>
+                  <option value="full">{t('zones.sunFull')}</option>
+                  <option value="partial">{t('zones.sunPartial')}</option>
+                  <option value="shade">{t('zones.sunShade')}</option>
+                </select>
+              </div>
+            </div>
+            <button type="button" onClick={calculateBaseTime} disabled={!form.area_m2 || !form.flow_lpm} className="btn-secondary w-full text-xs py-1.5 disabled:opacity-50">
+              {t('zones.calculateBtn')}
+            </button>
+          </div>
+        )}
       </div>
       <div>
         <label className="label">{t('common.description')}</label>

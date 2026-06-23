@@ -6,6 +6,10 @@ export interface Zone {
   duration_min: number
   sequence_order: number
   enabled: boolean
+  area_m2?: number
+  flow_lpm?: number
+  soil_type?: string
+  sun_exposure?: string
   valve_count: number
   is_watering: boolean
 }

@@ -21,6 +21,13 @@ def init_db():
             conn.execute(text("ALTER TABLE schedules ADD COLUMN smart_watering BOOLEAN DEFAULT 0"))
         except Exception:
             pass
+            
+        # Zones migrations
+        for col in ["area_m2 FLOAT", "flow_lpm FLOAT", "soil_type VARCHAR(20)", "sun_exposure VARCHAR(20)"]:
+            try:
+                conn.execute(text(f"ALTER TABLE zones ADD COLUMN {col}"))
+            except Exception:
+                pass
 
 
 def get_session():

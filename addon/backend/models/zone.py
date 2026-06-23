@@ -9,6 +9,10 @@ class ZoneBase(SQLModel):
     duration_min: int = Field(default=15, ge=1, le=240)
     sequence_order: int = Field(default=0, ge=0)
     enabled: bool = Field(default=True)
+    area_m2: Optional[float] = Field(default=None, ge=0.1)
+    flow_lpm: Optional[float] = Field(default=None, ge=0.1)
+    soil_type: Optional[str] = Field(default=None, max_length=20)
+    sun_exposure: Optional[str] = Field(default=None, max_length=20)
 
 
 class Zone(ZoneBase, table=True):
@@ -27,6 +31,10 @@ class ZoneUpdate(SQLModel):
     duration_min: Optional[int] = Field(default=None, ge=1, le=240)
     sequence_order: Optional[int] = Field(default=None, ge=0)
     enabled: Optional[bool] = None
+    area_m2: Optional[float] = Field(default=None, ge=0.1)
+    flow_lpm: Optional[float] = Field(default=None, ge=0.1)
+    soil_type: Optional[str] = Field(default=None, max_length=20)
+    sun_exposure: Optional[str] = Field(default=None, max_length=20)
 
 
 class ZoneRead(ZoneBase):

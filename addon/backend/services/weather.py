@@ -217,13 +217,34 @@ async def get_et0_data(lat: float, lon: float) -> dict:
         return {"et0": 0, "precipitation": 0}
 
 async def get_smart_scale() -> float:
-    from backend.config import settings
-    lat = settings.weather_lat if settings.weather_lat is not None else 52.2297
-    lon = settings.weather_lon if settings.weather_lon is not None else 21.0122
-    et_data = await get_et0_data(lat, lon)
-    et0 = et_data.get("et0", 0)
-    precip = et_data.get("precipitation", 0)
+    """Calculate the smart watering scale factor using ET0 data.
     
+    Reads weather_lat/weather_lon from app_settings table in DB.
+    Falls back to Warsaw coordinates if not configured.
+    """
+    from sqlmodel import Session, select
+    from backend.database.db import engine
+    from backend.models import AppSetting
+
+    lat = 52.2297  # default: Warsaw
+    lon = 21.0122
+
+    try:
+        with Session(engine) as session:
+            lat_row = session.get(AppSetting, "weather_lat")
+            lon_row = session.get(AppSetting, "weather_lon")
+            if lat_row and lat_row.value:
+                lat = float(lat_row.value)
+            if lon_row and lon_row.value:
+                lon = float(lon_row.value)
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Failed to read weather coords from DB: {e}")
+
+    et_data = await get_et0_data(lat, lon)
+    et0 = et_data.get("et0", 0) or 0
+    precip = et_data.get("precipitation", 0) or 0
+
     effective_demand = max(0, et0 - precip)
     scale = effective_demand / 4.0
     return max(0.0, min(1.5, scale))
+
