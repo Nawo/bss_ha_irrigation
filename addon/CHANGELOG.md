@@ -1,16 +1,19 @@
-## 3.4
+## 2.1.0
+
+### ✨ Smart Watering & Baseline Calculator
 - **Smart Watering (ET0)**: Added dynamic watering duration adjustment based on Evapotranspiration (ET0) from Open-Meteo. The system now automatically scales the watering time up or down depending on temperature, sun, and recent rainfall.
 - **Baseline Time Calculator**: Added a built-in UI calculator on the Zone page to mathematically compute the ideal baseline watering time (`duration_min`) based on the zone area (m²), flow rate (L/min), soil type (efficiency), and sun exposure. This ensures the baseline time is perfectly calibrated for the 4.0mm ET0 target.
-- **Force Run ("Podlej mimo to")**: Added the ability to manually override a skipped schedule. If a schedule is blocked by rain or soil sensors, a new "Water anyway" button appears next to the skipped badge, allowing you to force the scheduled run once.
-- **Fix**: Smart Watering scale was never applied because `get_smart_scale()` tried to read lat/lon from a non-existent config field instead of the `app_settings` DB table. The error was silently caught, resulting in the base duration always being used unchanged. Now correctly reads coordinates from the Weather page settings.
+
+### 🚀 Other Features
+- **Force Run ("Water Anyway")**: Added the ability to manually override a skipped schedule. If a schedule is blocked by rain or soil sensors, a new "Water anyway" button appears next to the skipped badge, allowing you to force the scheduled run once.
 
 ## 2.0.0 (Nawo Fork Major Release)
 
 ### ✨ New Features & UI Overhaul
 - **Granular Weather Controls**: Moved `skip_if_raining` and `skip_if_rained_today` settings from a global Weather configuration to a per-schedule configuration. You can now define precisely which schedules should skip on rain.
-- **Smart Status Display**: Removed the distracting second-by-second countdown. The dashboard now displays clean, friendly statuses ("Planowane", "W trakcie").
-- **Rain Skip Awareness**: If a schedule is known to be skipped due to rain, the countdown is entirely hidden and replaced with a clear "Pominięte z powodu deszczu" (Skipped due to rain) status on both the Dashboard and Schedule views.
-- **Enhanced Status Sensor**: `sensor.irrigation_bss_watering_status` now publishes localized status text and active zone names (e.g. `Aktywne - Dom tył`) with machine-readable `state_value`. Localized watering status display follows the addon language setting (`pl`/`en`/`de`).
+- **Smart Status Display**: Removed the distracting second-by-second countdown. The dashboard now displays clean, friendly statuses ("Planned", "Active").
+- **Rain Skip Awareness**: If a schedule is known to be skipped due to rain, the countdown is entirely hidden and replaced with a clear "Skipped due to rain" status on both the Dashboard and Schedule views.
+- **Enhanced Status Sensor**: `sensor.irrigation_bss_watering_status` now publishes localized status text and active zone names (e.g. `Active - Front Lawn`) with machine-readable `state_value`. Localized watering status display follows the addon language setting (`pl`/`en`/`de`).
 - **Rain History Skip (`skip_if_rained_today`)**: Introduced a feature to block watering if it has rained earlier in the day by parsing HA weather entity history since local midnight. Prevents timezone-related bugs by using correct local-to-UTC conversion.
 
 ### 🛡 Security & Fail-Safe

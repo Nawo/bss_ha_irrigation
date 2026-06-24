@@ -1,5 +1,5 @@
 name: "Irrigation BSS (Nawo fork)"
-version: "3.6"
+version: "2.1.0"
 slug: "irrigation_bss"
 description: "Advanced irrigation management — zones, valves, sensors, scheduler"
 url: "https://github.com/Nawo/bss_ha_irrigation"
