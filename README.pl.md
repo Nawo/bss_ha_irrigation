@@ -69,9 +69,10 @@ Używaj tego na osobnej testowej instancji Home Assistant.
 
 ![Dashboard](docs/screenshots/dashboard.png)
 ![Sekcje](docs/screenshots/sections.png)
-![Zawory](docs/screenshots/valves.png)
 ![Czujniki](docs/screenshots/sensors.png)
 ![Harmonogram](docs/screenshots/schedule.png)
+![Pogoda](docs/screenshots/weather.png)
+![Historia](docs/screenshots/history.png)
 
 ## Licencja
 

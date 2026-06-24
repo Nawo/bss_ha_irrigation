@@ -69,9 +69,10 @@ Use this on a separate test Home Assistant instance.
 
 ![Dashboard](docs/screenshots/dashboard.png)
 ![Sections](docs/screenshots/sections.png)
-![Valves](docs/screenshots/valves.png)
 ![Sensors](docs/screenshots/sensors.png)
 ![Schedule](docs/screenshots/schedule.png)
+![Weather](docs/screenshots/weather.png)
+![History](docs/screenshots/history.png)
 
 ## License
 
