@@ -108,6 +108,14 @@ def reload_schedules():
 def start():
     _scheduler.start()
     reload_schedules()
+    
+    from backend.services.sma import run_daily_sma_update
+    _scheduler.add_job(
+        run_daily_sma_update,
+        CronTrigger(hour=0, minute=5), # Run at 00:05 daily
+        id="sma_daily_update",
+        replace_existing=True
+    )
     logger.info("Scheduler started")
 
 

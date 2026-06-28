@@ -3,11 +3,17 @@ export interface Zone {
   name: string
   color: string
   description?: string
-  duration_min: number
   sequence_order: number
   enabled: boolean
   valve_count: number
   is_watering: boolean
+  plant_type: string
+  emitter_type: string
+  soil_type: string
+  sun_exposure: string
+  area_m2: number
+  flow_lpm: number
+  current_depletion_mm: number
 }
 
 export interface Valve {
@@ -31,6 +37,8 @@ export interface Sensor {
   threshold?: number
   enabled: boolean
   notes?: string
+  skip_if_rained_today?: boolean
+  zone_id?: number
   ha_state?: string
   is_blocking: boolean
 }

@@ -108,3 +108,50 @@ def _wmo_to_condition(code: int) -> str:
     if code in range(95, 100):
         return "lightning-rainy"
     return "cloudy"
+
+
+async def get_et0_and_precip() -> dict:
+    """
+    Fetches yesterday's ET0 and precipitation from Open-Meteo based on HA zone.home coordinates.
+    Returns:
+        {
+            "et0_history": [float],    # mm
+            "precip_history": [float], # mm
+        }
+    """
+    state = ha_client.get_cached_state("zone.home")
+    if not state:
+        logger.warning("Could not find zone.home in HA for coordinates.")
+        return {"et0_history": [], "precip_history": []}
+
+    lat = state.get("attributes", {}).get("latitude")
+    lon = state.get("attributes", {}).get("longitude")
+
+    if not lat or not lon:
+        logger.warning("No latitude/longitude in zone.home")
+        return {"et0_history": [], "precip_history": []}
+
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "daily": "et0_fao_evapotranspiration,precipitation_sum",
+        "past_days": 1,
+        "forecast_days": 0,
+    }
+    try:
+        async with aiohttp.ClientSession() as s:
+            async with s.get("https://api.open-meteo.com/v1/forecast", params=params, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                data = await resp.json()
+
+        daily = data.get("daily", {})
+        et0_list = daily.get("et0_fao_evapotranspiration", [])
+        precip_list = daily.get("precipitation_sum", [])
+
+        # The first element in past_days=1 is yesterday
+        return {
+            "et0_history": et0_list,
+            "precip_history": precip_list,
+        }
+    except Exception as e:
+        logger.error(f"Open-Meteo historical fetch failed: {e}")
+        return {"et0_history": [], "precip_history": []}

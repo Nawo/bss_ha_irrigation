@@ -18,7 +18,9 @@ function ZoneForm({ initial, onSave, onCancel }: {
 }) {
   const { t } = useTranslation()
   const [form, setForm] = useState<Partial<Zone>>({
-    name: '', color: '#22c55e', description: '', duration_min: 15, sequence_order: 0, enabled: true,
+    name: '', color: '#22c55e', description: '', sequence_order: 0, enabled: true,
+    plant_type: 'grass', emitter_type: 'rotor', soil_type: 'loam', sun_exposure: 'full',
+    area_m2: 10, flow_lpm: 10,
     ...initial,
   })
   const [saving, setSaving] = useState(false)
@@ -35,29 +37,76 @@ function ZoneForm({ initial, onSave, onCancel }: {
   return (
     <form onSubmit={submit} className="p-5 space-y-4">
       {err && <div className="bg-red-900/40 border border-red-800 text-red-300 text-sm rounded-lg px-3 py-2">{err}</div>}
-      <div>
-        <label className="label">{t('common.name')} *</label>
-        <input className="input" required value={form.name || ''} onChange={e => set('name', e.target.value)} />
-      </div>
-      <div>
-        <label className="label">{t('zones.color')}</label>
-        <div className="flex gap-2 flex-wrap mt-1">
-          {COLORS.map(c => (
-            <button key={c} type="button" onClick={() => set('color', c)}
-              className="w-7 h-7 rounded-full border-2 transition-all"
-              style={{ backgroundColor: c, borderColor: form.color === c ? 'white' : 'transparent' }} />
-          ))}
-          <input type="color" value={form.color || '#22c55e'} onChange={e => set('color', e.target.value)}
-            className="w-7 h-7 rounded-full cursor-pointer bg-transparent border-0" title="Custom" />
-        </div>
-      </div>
       <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2">
+          <label className="label">{t('common.name')} *</label>
+          <input className="input" required value={form.name || ''} onChange={e => set('name', e.target.value)} />
+        </div>
+        
         <div>
-          <label className="label">{t('zones.duration')} *</label>
-          <input className="input" type="number" min={1} max={240} required
-            value={form.duration_min || 15} onChange={e => set('duration_min', Number(e.target.value))} />
+          <label className="label">{t('sma.plant_type', 'Plant Type')}</label>
+          <select className="input" value={form.plant_type || 'grass'} onChange={e => set('plant_type', e.target.value)}>
+            <option value="grass">{t('sma.plants.grass', 'Grass')}</option>
+            <option value="shrubs">{t('sma.plants.shrubs', 'Shrubs')}</option>
+            <option value="trees">{t('sma.plants.trees', 'Trees')}</option>
+            <option value="vegetables">{t('sma.plants.vegetables', 'Vegetables')}</option>
+            <option value="flowers">{t('sma.plants.flowers', 'Flowers')}</option>
+          </select>
+        </div>
+        
+        <div>
+          <label className="label">{t('sma.emitter_type', 'Emitters')}</label>
+          <select className="input" value={form.emitter_type || 'rotor'} onChange={e => set('emitter_type', e.target.value)}>
+            <option value="rotor">{t('sma.emitters.rotor', 'Rotors')}</option>
+            <option value="spray">{t('sma.emitters.spray', 'Sprays')}</option>
+            <option value="drip">{t('sma.emitters.drip', 'Drip Line')}</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="label">{t('sma.soil_type', 'Soil Type')}</label>
+          <select className="input" value={form.soil_type || 'loam'} onChange={e => set('soil_type', e.target.value)}>
+            <option value="sand">{t('sma.soils.sand', 'Sand')}</option>
+            <option value="loam">{t('sma.soils.loam', 'Loam')}</option>
+            <option value="clay">{t('sma.soils.clay', 'Clay')}</option>
+            <option value="universal">{t('sma.soils.universal', 'Universal Soil')}</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="label">{t('sma.sun_exposure', 'Sun Exposure')}</label>
+          <select className="input" value={form.sun_exposure || 'full'} onChange={e => set('sun_exposure', e.target.value)}>
+            <option value="full">{t('sma.sun.full', 'Full Sun')}</option>
+            <option value="partial">{t('sma.sun.partial', 'Partial Shade')}</option>
+            <option value="shade">{t('sma.sun.shade', 'Shade')}</option>
+          </select>
+        </div>
+        
+        <div>
+          <label className="label">{t('sma.area_m2', 'Area (m²)')} *</label>
+          <input className="input" type="number" min={0.1} step={0.1} required
+            value={form.area_m2 || 10} onChange={e => set('area_m2', Number(e.target.value))} />
         </div>
         <div>
+          <label className="label">{t('sma.flow_lpm', 'Flow (L/min)')} *</label>
+          <input className="input" type="number" min={0.1} step={0.1} required
+            value={form.flow_lpm || 10} onChange={e => set('flow_lpm', Number(e.target.value))} />
+        </div>
+
+        <div className="col-span-2">
+          <label className="label">{t('zones.color')}</label>
+          <div className="flex gap-2 flex-wrap mt-1">
+            {COLORS.map(c => (
+              <button key={c} type="button" onClick={() => set('color', c)}
+                className="w-7 h-7 rounded-full border-2 transition-all"
+                style={{ backgroundColor: c, borderColor: form.color === c ? 'white' : 'transparent' }} />
+            ))}
+            <input type="color" value={form.color || '#22c55e'} onChange={e => set('color', e.target.value)}
+              className="w-7 h-7 rounded-full cursor-pointer bg-transparent border-0" title="Custom" />
+          </div>
+        </div>
+
+        <div className="col-span-2">
           <label className="label">{t('zones.order')}</label>
           <input className="input" type="number" min={0}
             value={form.sequence_order || 0} onChange={e => set('sequence_order', Number(e.target.value))} />
@@ -83,7 +132,7 @@ function ZoneForm({ initial, onSave, onCancel }: {
 
 function StartDialog({ zone, onClose }: { zone: Zone; onClose: () => void }) {
   const { t } = useTranslation()
-  const [duration, setDuration] = useState(zone.duration_min)
+  const [duration, setDuration] = useState(15)
   const [loading, setLoading] = useState(false)
   const start = async () => {
     setLoading(true)
@@ -177,7 +226,7 @@ export default function ZonesPage() {
               </div>
               {zone.description && <p className="text-xs text-gray-500 mb-3 truncate">{zone.description}</p>}
               <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400 mb-3">
-                <span className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">{zone.duration_min} min</span>
+                <span className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-blue-500">💧 {Math.round(zone.current_depletion_mm)} mm</span>
                 <span className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">#{zone.sequence_order}</span>
                 {!zone.enabled && <StatusBadge variant="gray">{t('common.disabled')}</StatusBadge>}
               </div>

@@ -369,10 +369,32 @@ async def start_zone(zone_id: int, duration_min: Optional[int] = None,
         if not valves:
             return {"ok": False, "error": "Zone has no enabled valves"}
 
-        duration = duration_min or zone.duration_min
         valve_ids = [v.id for v in valves]
         valve_entities = [v.entity_id for v in valves]
         zone_name = zone.name
+
+        # SMA: Calculate watering duration from physical depletion
+        if duration_min:
+            duration = duration_min
+        else:
+            from backend.services.sma import get_zone_capacity_mm, get_zone_efficiency
+            max_capacity_mm = get_zone_capacity_mm(zone)
+            mad_mm = max_capacity_mm * 0.5  # 50% Management Allowed Depletion
+            
+            # If soil has enough water, skip (only for scheduled runs, manual is manual)
+            if zone.current_depletion_mm < mad_mm and not skip_sensor_check and triggered_by == TriggerSource.schedule:
+                return {"ok": False, "skipped": True, "skip_reason": "soil_moisture_ok"}
+                
+            efficiency = get_zone_efficiency(zone)
+            gross_irrigation_mm = zone.current_depletion_mm / efficiency
+            
+            # Convert mm to minutes based on area and flow
+            if zone.flow_lpm > 0:
+                calc_duration = int(round((gross_irrigation_mm * zone.area_m2) / zone.flow_lpm))
+            else:
+                calc_duration = 15
+                
+            duration = max(1, calc_duration)
 
     if not skip_sensor_check:
         skip = await check_sensors_blocking(
@@ -381,7 +403,7 @@ async def start_zone(zone_id: int, duration_min: Optional[int] = None,
             skip_if_frost=skip_if_frost,
         )
         if skip:
-            _log_skip(zone_id, zone_name, valve_ids, skip, triggered_by)
+            _log_skip(zone_id, zone_name, valve_ids, skip.value, triggered_by)
             return {"ok": False, "skipped": True, "skip_reason": skip.value}
 
     if zone_id in _active:
@@ -478,6 +500,14 @@ async def _auto_stop(zone_id: int, duration_min: int, valve_entities: List[str],
         })
         await _finish_zone(zone_id, info, reason="completed")
         logger.info(f"Zone {zone_id} completed after {duration_min} min")
+        
+        # Smart Watering 2.0: Reset depletion after successful run
+        with Session(engine) as session:
+            zone = session.get(Zone, zone_id)
+            if zone:
+                zone.current_depletion_mm = 0.0
+                session.commit()
+
     except asyncio.CancelledError:
         return
 

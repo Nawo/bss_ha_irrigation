@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Pencil, Trash2, Radio } from 'lucide-react'
 import { sensorsApi } from '../api/sensors'
-import type { Sensor, SensorType } from '../types'
+import { zonesApi } from '../api/zones'
+import type { Sensor, SensorType, Zone } from '../types'
 import Modal from '../components/common/Modal'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import StatusBadge from '../components/common/StatusBadge'
@@ -54,8 +55,9 @@ function formatThreshold(sensor: Sensor) {
   return nf.format(sensor.threshold)
 }
 
-function SensorForm({ initial, onSave, onCancel }: {
+function SensorForm({ initial, zones, onSave, onCancel }: {
   initial?: Partial<Sensor>
+  zones: Zone[]
   onSave: (data: Partial<Sensor>) => Promise<void>
   onCancel: () => void
 }) {
@@ -111,6 +113,24 @@ function SensorForm({ initial, onSave, onCancel }: {
           </p>
         </div>
       )}
+      {form.sensor_type === 'weather' && (
+        <div className="flex items-center gap-2">
+          <input type="checkbox" id="s-skip" checked={!!form.skip_if_rained_today}
+            onChange={e => set('skip_if_rained_today', e.target.checked)} className="w-4 h-4 accent-primary-500" />
+          <label htmlFor="s-skip" className="text-sm text-gray-700 dark:text-gray-300">
+            {t('sensors.skipIfRainedToday', 'Skip if it rained today')}
+          </label>
+        </div>
+      )}
+      {form.sensor_type === 'soil' && (
+        <div>
+          <label className="label">{t('sensors.zone', 'Assigned Zone')}</label>
+          <select className="input" value={form.zone_id || ''} onChange={e => set('zone_id', e.target.value ? Number(e.target.value) : null)}>
+            <option value="">{t('common.none', 'None')}</option>
+            {zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
+          </select>
+        </div>
+      )}
       <div>
         <label className="label">{t('common.notes')}</label>
         <textarea className="input resize-none" rows={2}
@@ -132,12 +152,16 @@ function SensorForm({ initial, onSave, onCancel }: {
 export default function SensorsPage() {
   const { t } = useTranslation()
   const [sensors, setSensors] = useState<Sensor[]>([])
+  const [zones, setZones] = useState<Zone[]>([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<'add' | 'edit' | null>(null)
   const [selected, setSelected] = useState<Sensor | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Sensor | null>(null)
 
-  const load = () => sensorsApi.list().then(setSensors).finally(() => setLoading(false))
+  const load = () => Promise.all([
+    sensorsApi.list().then(setSensors),
+    zonesApi.list().then(setZones)
+  ]).finally(() => setLoading(false))
   useEffect(() => { load() }, [])
   useEffect(() => {
     const id = setInterval(() => sensorsApi.list().then(setSensors).catch(() => {}), 5000)
@@ -210,10 +234,10 @@ export default function SensorsPage() {
       )}
 
       <Modal open={modal === 'add'} title={t('sensors.addSensor')} onClose={() => setModal(null)}>
-        <SensorForm onSave={save} onCancel={() => setModal(null)} />
+        <SensorForm zones={zones} onSave={save} onCancel={() => setModal(null)} />
       </Modal>
       <Modal open={modal === 'edit'} title={t('sensors.editSensor')} onClose={() => setModal(null)}>
-        {selected && <SensorForm initial={selected} onSave={save} onCancel={() => setModal(null)} />}
+        {selected && <SensorForm zones={zones} initial={selected} onSave={save} onCancel={() => setModal(null)} />}
       </Modal>
       <ConfirmDialog open={!!deleteTarget} title={t('sensors.deleteSensor')}
         message={t('sensors.deleteConfirm', { name: deleteTarget?.name })}

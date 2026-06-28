@@ -37,6 +37,37 @@
     "history": "Verlauf",
     "settings": "Einstellungen"
   },
+  "sma": {
+    "plant_type": "Pflanzentyp",
+    "plants": {
+      "grass": "Rasen",
+      "shrubs": "Sträucher",
+      "trees": "Bäume",
+      "vegetables": "Gemüse",
+      "flowers": "Blumen"
+    },
+    "emitter_type": "Tropfer/Sprüher",
+    "emitters": {
+      "rotor": "Rotoren",
+      "spray": "Sprüher",
+      "drip": "Tropfschlauch"
+    },
+    "soil_type": "Bodentyp",
+    "soils": {
+      "sand": "Sand",
+      "loam": "Lehm",
+      "clay": "Ton",
+      "universal": "Universalerde"
+    },
+    "sun_exposure": "Sonneneinstrahlung",
+    "sun": {
+      "full": "Volle Sonne",
+      "partial": "Halbschatten",
+      "shade": "Schatten"
+    },
+    "area_m2": "Fläche (m\u00b2)",
+    "flow_lpm": "Durchfluss (L/min)"
+  },
   "header": {
     "watering": "Bewässerung aktiv",
     "notWatering": "Keine Bewässerung",
@@ -58,7 +89,12 @@
     "wateringBlocked": "Bewässerung durch Sensoren blockiert:",
     "forceStart": "Erzwungener Start (Sensorblockaden ignorieren)",
     "remaining": "verbleibend",
-    "noZones": "Keine Sektionen konfiguriert."
+    "noZones": "Keine Sektionen konfiguriert.",
+    "smaInfoTitle": "Wie funktioniert Smart Watering 2.0?",
+    "smaInfo1": "Das System berechnet täglich den Wasserverbrauch der Pflanzen (Evapotranspiration) basierend auf dem Open-Meteo-Wetterverlauf und den Zonenparametern (Pflanzentyp, Boden, Sonneneinstrahlung).",
+    "smaInfo2": "Der Wassermangel (Defizit) wird in Millimetern [mm] ausgedrückt. Wenn ein physischer Bodensensor angeschlossen ist, wird das mathematische Modell ignoriert und der tatsächliche Messwert verwendet.",
+    "smaInfo3": "Wenn der Zeitplan startet, prüft das System das Defizit. Übersteigt es 50 % der Bodenkapazität, beginnt die Bewässerung mit einer dynamisch berechneten Zeit. Andernfalls wird der Zyklus übersprungen, um Wasser zu sparen.",
+    "startZoneConfirm": "Wie viele Minuten soll die Zone laufen?"
   },
   "zones": {
     "title": "Sektionen",

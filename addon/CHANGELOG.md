@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.1.0 (Smart Watering 2.0)
+
+### ✨ Smart Watering 2.0 (Soil Moisture Accounting)
+- **Mathematical Water Balance**: The entire system has been rebuilt from the ground up to use the FAO-56 Penman-Monteith method. It mathematically models the exact amount of water the plant used (Evapotranspiration) and replenishes exactly what was lost, taking into account the plant type, soil type, emitter type, and sun exposure. 
+- **Soil Sensor Override**: If a physical soil moisture sensor is attached to a zone, the mathematical model is bypassed, and the exact physical depletion is used to calculate the watering duration.
+- **Smart Skip**: Scheduled waterings are automatically skipped if the calculated soil moisture deficit hasn't reached the 50% Management Allowed Depletion (MAD) threshold. This saves massive amounts of water by not watering already moist soil.
+
+### 🚀 Other Features
+- **Force Run ("Water anyway")**: Added the ability to manually override a skipped schedule. If a schedule is blocked by rain or soil sensors, a new "Water anyway" button appears next to the skipped badge, allowing you to force the scheduled run once.
+
 ## 1.4.4
 
 - Fixed: Color theme settings now correctly update the UI in real-time — all background, surface, border, button, badge, and accent elements respond to custom colour changes.

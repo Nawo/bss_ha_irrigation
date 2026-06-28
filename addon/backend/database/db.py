@@ -9,6 +9,14 @@ engine = create_engine(settings.db_path, echo=False)
 # Each entry: (table, column, column_definition)
 _MIGRATIONS: list[tuple[str, str, str]] = [
     ("schedules", "extra_zone_ids", "TEXT"),
+    ("zones", "plant_type", "VARCHAR(20) DEFAULT 'grass'"),
+    ("zones", "emitter_type", "VARCHAR(20) DEFAULT 'rotor'"),
+    ("zones", "soil_type", "VARCHAR(20) DEFAULT 'loam'"),
+    ("zones", "sun_exposure", "VARCHAR(20) DEFAULT 'full'"),
+    ("zones", "area_m2", "FLOAT DEFAULT 10.0"),
+    ("zones", "flow_lpm", "FLOAT DEFAULT 10.0"),
+    ("zones", "current_depletion_mm", "FLOAT DEFAULT 0.0"),
+    ("sensors", "zone_id", "INTEGER"),
 ]
 
 

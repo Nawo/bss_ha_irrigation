@@ -37,6 +37,37 @@
     "history": "History",
     "settings": "Settings"
   },
+  "sma": {
+    "plant_type": "Plant type",
+    "plants": {
+      "grass": "Grass",
+      "shrubs": "Shrubs",
+      "trees": "Trees",
+      "vegetables": "Vegetables",
+      "flowers": "Flowers"
+    },
+    "emitter_type": "Emitter type",
+    "emitters": {
+      "rotor": "Rotors",
+      "spray": "Sprays",
+      "drip": "Drip line"
+    },
+    "soil_type": "Soil type",
+    "soils": {
+      "sand": "Sand",
+      "loam": "Loam",
+      "clay": "Clay",
+      "universal": "Universal soil"
+    },
+    "sun_exposure": "Sun exposure",
+    "sun": {
+      "full": "Full sun",
+      "partial": "Partial shade",
+      "shade": "Full shade"
+    },
+    "area_m2": "Area (m\u00b2)",
+    "flow_lpm": "Flow rate (L/min)"
+  },
   "header": {
     "watering": "Watering",
     "notWatering": "Not watering",
@@ -58,7 +89,12 @@
     "wateringBlocked": "Watering blocked by sensors:",
     "forceStart": "Force start (ignore sensor blocks)",
     "remaining": "remaining",
-    "noZones": "No sections configured yet."
+    "noZones": "No sections configured yet.",
+    "smaInfoTitle": "How does Smart Watering 2.0 work?",
+    "smaInfo1": "The system calculates daily water consumption (Evapotranspiration) based on Open-Meteo weather history and zone parameters (plant type, soil, sun exposure).",
+    "smaInfo2": "Water depletion is calculated in millimeters [mm]. If a physical soil sensor is connected, the mathematical model is ignored, and the actual sensor value is used.",
+    "smaInfo3": "When the schedule runs, the system checks the depletion. If it exceeds 50% of the soil capacity, watering starts with a dynamically calculated time. Otherwise, it is skipped to save water.",
+    "startZoneConfirm": "How many minutes should it run?"
   },
   "zones": {
     "title": "Sections",

@@ -37,6 +37,37 @@
     "history": "Historia",
     "settings": "Ustawienia"
   },
+  "sma": {
+    "plant_type": "Typ rośliny",
+    "plants": {
+      "grass": "Trawa",
+      "shrubs": "Krzewy",
+      "trees": "Drzewa",
+      "vegetables": "Warzywa",
+      "flowers": "Kwiaty"
+    },
+    "emitter_type": "Zraszacze",
+    "emitters": {
+      "rotor": "Rotacyjne",
+      "spray": "Statyczne",
+      "drip": "Linia kroplująca"
+    },
+    "soil_type": "Typ gleby",
+    "soils": {
+      "sand": "Piasek",
+      "loam": "Glina piaszczysta",
+      "clay": "Glina ciężka",
+      "universal": "Ziemia uniwersalna"
+    },
+    "sun_exposure": "Nasłonecznienie",
+    "sun": {
+      "full": "Pełne słońce",
+      "partial": "Półcień",
+      "shade": "Cień"
+    },
+    "area_m2": "Powierzchnia (m\u00b2)",
+    "flow_lpm": "Przepływ (L/min)"
+  },
   "header": {
     "watering": "Podlewanie",
     "notWatering": "Brak podlewania",
@@ -58,7 +89,12 @@
     "wateringBlocked": "Podlewanie zablokowane przez czujniki:",
     "forceStart": "Wymuś start (ignoruj blokady czujników)",
     "remaining": "pozostało",
-    "noZones": "Brak skonfigurowanych sekcji."
+    "noZones": "Brak skonfigurowanych sekcji.",
+    "smaInfoTitle": "Jak działa Smart Watering 2.0?",
+    "smaInfo1": "System codziennie oblicza ile wody zużyły rośliny (tzw. ewapotranspiracja) na podstawie historii pogody z Open-Meteo oraz parametrów strefy (typ rośliny, gleby i nasłonecznienie).",
+    "smaInfo2": "Niedobór wody (deficyt) wyrażany jest w milimetrach [mm]. Jeśli fizyczny czujnik gleby jest podłączony do strefy, system ignoruje modele matematyczne i opiera się na faktycznym odczycie.",
+    "smaInfo3": "Gdy nadejdzie czas harmonogramu, system sprawdzi deficyt. Jeśli przekracza on 50% pojemności wodnej gleby — nastąpi podlewanie z dynamicznie wyliczonym czasem. W przeciwnym razie cykl zostanie pominięty, oszczędzając wodę.",
+    "startZoneConfirm": "Ile minut ma działać strefa?"
   },
   "zones": {
     "title": "Sekcje",

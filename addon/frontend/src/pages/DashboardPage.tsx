@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Droplets, Layers, Zap, Radio, Play, Square, Clock, CalendarDays } from 'lucide-react'
+import { Droplets, Layers, Zap, Radio, Play, Square, Clock, CalendarDays, CircleHelp } from 'lucide-react'
 import { useIrrigationStore } from '../store/irrigationStore'
 import { zonesApi } from '../api/zones'
 import { sensorsApi } from '../api/sensors'
@@ -40,6 +40,7 @@ export default function DashboardPage() {
   const [startModalZone, setStartModalZone] = useState<Zone | null>(null)
   const [startModalDuration, setStartModalDuration] = useState<number>(15)
   const [startModalForce, setStartModalForce] = useState<boolean>(false)
+  const [infoModal, setInfoModal] = useState<boolean>(false)
 
   useEffect(() => {
     zonesApi.list().then(setZones).catch(() => {})
@@ -60,7 +61,7 @@ export default function DashboardPage() {
     const hasSelected = quickZoneId !== '' && availableStartZones.some(z => z.id === quickZoneId)
     if (!hasSelected) {
       setQuickZoneId(availableStartZones[0].id)
-      setQuickDuration(availableStartZones[0].duration_min)
+      setQuickDuration(15)
     }
   }, [availableStartZones, quickZoneId])
 
@@ -91,7 +92,7 @@ export default function DashboardPage() {
 
   const openStartModal = (zone: Zone) => {
     setStartModalZone(zone)
-    setStartModalDuration(zone.duration_min)
+    setStartModalDuration(15)
     setStartModalForce(false)
   }
 
@@ -114,7 +115,12 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold text-gray-900 dark:text-white">{t('dashboard.title')}</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white">{t('dashboard.title')}</h1>
+        <button onClick={() => setInfoModal(true)} className="text-gray-400 hover:text-primary-500 transition-colors">
+          <CircleHelp size={18} />
+        </button>
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
@@ -159,7 +165,7 @@ export default function DashboardPage() {
                 setQuickZoneId(id)
                 if (id !== '') {
                   const z = availableStartZones.find(zone => zone.id === id)
-                  if (z) setQuickDuration(z.duration_min)
+                  if (z) setQuickDuration(15)
                 }
               }}
             >
@@ -236,8 +242,8 @@ export default function DashboardPage() {
                     <span className="flex items-center gap-1">
                       <Zap size={11} />{zone.valve_count} {t('zones.valveCount').toLowerCase()}
                     </span>
-                    <span className="flex items-center gap-1">
-                      <Clock size={11} />{zone.duration_min} min
+                    <span className="flex items-center gap-1 text-blue-500">
+                      <Droplets size={11} />{Math.round(zone.current_depletion_mm)} mm
                     </span>
                     {nextRun && (
                       <span className="flex items-center gap-1 text-primary-400">
@@ -325,6 +331,17 @@ export default function DashboardPage() {
             >
               <Play size={11} />{t('zones.startZone')}
             </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={infoModal} title={t('dashboard.smaInfoTitle', 'How does Smart Watering 2.0 work?')} onClose={() => setInfoModal(false)}>
+        <div className="p-5 space-y-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed max-w-md">
+          <p>{t('dashboard.smaInfo1', 'The system calculates daily water consumption (Evapotranspiration) based on Open-Meteo weather history and zone parameters (plant type, soil, sun exposure).')}</p>
+          <p>{t('dashboard.smaInfo2', 'Water depletion is calculated in millimeters [mm]. If a physical soil sensor is connected, the mathematical model is ignored, and the actual sensor value is used.')}</p>
+          <p>{t('dashboard.smaInfo3', 'When the schedule runs, the system checks the depletion. If it exceeds 50% of the soil capacity, watering starts with a dynamically calculated time. Otherwise, it is skipped to save water.')}</p>
+          <div className="flex justify-end pt-4">
+            <button onClick={() => setInfoModal(false)} className="btn-primary btn-sm">{t('common.close')}</button>
           </div>
         </div>
       </Modal>
