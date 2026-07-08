@@ -562,10 +562,14 @@ async def _finish_zone(zone_id: int, info: dict, reason: str,
         except Exception as e:
             logger.warning(f"Valve turn_off failed ({entity_id}): {e}")
 
-    _active.pop(zone_id, None)
-    _delete_active_state(zone_id)
+    # Check if this is the last active zone BEFORE popping.
+    # We must complete all infrastructure cleanup (main valve, pump, sweep)
+    # BEFORE removing from _active, otherwise the scheduler's polling loop
+    # sees the zone as "done" and starts the next zone while sweep is still
+    # closing valves — causing a race condition in sequential schedules.
+    is_last_active = len(_active) <= 1
 
-    if len(_active) == 0:
+    if is_last_active:
         with Session(engine) as session:
             main_valve = _get_main_valve_entity(session)
             pump_valve = _get_pump_entity(session)
@@ -596,6 +600,10 @@ async def _finish_zone(zone_id: int, info: dict, reason: str,
             logger.info("Safety sweep: all zone valves closed")
         except Exception as e:
             logger.warning(f"Safety sweep failed: {e}")
+
+    # NOW it's safe to remove from _active — scheduler can proceed
+    _active.pop(zone_id, None)
+    _delete_active_state(zone_id)
 
     _update_log(info.get("log_id"), info.get("started_at"), skipped=skipped, skip_reason=skip_reason)
     await _broadcast("zone_stopped", {"zone_id": zone_id, "reason": reason, "active_zones": get_active_zones()})

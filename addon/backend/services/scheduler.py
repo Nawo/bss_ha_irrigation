@@ -53,24 +53,41 @@ async def _fire_schedule(schedule_id: int):
     )
 
     if mode == "sequential" or len(zone_ids) > 1:
+        # Pre-check sensors/weather ONCE for the entire sequence.
+        # This prevents a scenario where weather changes mid-sequence
+        # (e.g., brief rain during zone 1) and blocks all remaining zones.
+        if not force_next_run:
+            skip = await irrigation.check_sensors_blocking(
+                skip_if_raining=skip_if_raining,
+                skip_if_rained_today=skip_if_rained_today,
+                skip_if_soil_wet=skip_if_soil_wet,
+                skip_if_frost=skip_if_frost,
+            )
+            if skip:
+                logger.warning(
+                    f"Schedule {schedule_id} blocked by sensor check before sequence: {skip.value}"
+                )
+                return
+
         # Sequential: run each zone one after another, waiting for completion.
         for zid in zone_ids:
             result = await irrigation.start_zone(
                 zone_id=zid,
                 duration_min=duration_override,
                 triggered_by=TriggerSource.schedule,
-                skip_sensor_check=force_next_run,
+                skip_sensor_check=True,  # Already checked above
                 skip_if_raining=skip_if_raining,
                 skip_if_rained_today=skip_if_rained_today,
                 skip_if_soil_wet=skip_if_soil_wet,
                 skip_if_frost=skip_if_frost,
                 smart_watering=smart_watering,
             )
-            if not result.get("ok") and not result.get("skipped"):
-                logger.warning(f"Schedule {schedule_id} zone {zid} skipped/failed: {result}")
+            if not result.get("ok"):
+                logger.warning(f"Schedule {schedule_id} zone {zid} failed: {result}")
                 if result.get("skipped"):
-                    # Sensor block applies globally — skip remaining zones too
+                    # Sensor/smart_watering block — skip remaining zones too
                     break
+                # Non-skip failure (zone disabled, no valves, etc.) — try next zone
                 continue
             # Wait for the zone to finish before starting the next one
             elapsed = 0

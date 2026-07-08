@@ -1,3 +1,11 @@
+## 2.1.1
+
+### 🐛 Critical Fix: Sequential schedules only watering first zone
+
+- **Fix: Safety Sweep Race Condition**: Resolved an async race condition where the safety sweep (which closes all valves after the last zone finishes) could close valves of the *next* zone in a sequence that had already started. The scheduler now only sees a zone as "done" after all infrastructure cleanup is complete.
+- **Fix: Weather blocking per zone**: Sensor and weather checks are now performed **once** before the entire sequence starts, instead of independently for each zone. This prevents later zones from being blocked if weather briefly changes mid-sequence (e.g., a short rain during zone 1 would block zones 2+).
+- **Fix: Dead code in scheduler loop**: Fixed a logic error where the `break` statement for sensor-skipped zones could never execute due to a contradictory outer condition.
+
 ## 2.1.0
 
 ### ✨ Smart Watering & Baseline Calculator
