@@ -53,9 +53,20 @@ The addon publishes its state back to Home Assistant as entities you can use in 
 
 - `binary_sensor.irrigation_bss_watering` — any zone active
 - `sensor.irrigation_bss_watering_status` — watering status with localized text and reason
-  - state values: `active`, `rain_blocked`, `frost_protection`, `inactive`
+  - state values: `active`, `planned`, `rain_blocked`, `frost_protection`, `inactive`
   - if active, display text becomes e.g. `Aktywne - Dom tył` or `Active - Back yard`
-  - attributes: `status_reason`, `state_value`, `active`, `active_zone`, `remaining_sec`, `next_run`, `status_text`
+  - `inactive` (nothing watering and nothing planned today) shows `Nieaktywne` / `Inactive` with icon `mdi:water-off`
+  - attributes: `status_reason`, `state_value`, `active`, `active_zone`, `remaining_sec`, `next_run`, `status_text`, `icon_color`
+  - `icon_color` is a suggested colour name (`grey` when inactive). Core HA cards ignore it; use it in a Mushroom template card:
+
+    ```yaml
+    type: custom:mushroom-template-card
+    entity: sensor.irrigation_bss_watering_status
+    primary: Nawadnianie
+    secondary: "{{ states(entity) }}"
+    icon: "{{ state_attr(entity, 'icon') }}"
+    icon_color: "{{ state_attr(entity, 'icon_color') }}"
+    ```
 - `sensor.irrigation_bss_active_zone` — active zone name
 - `sensor.irrigation_bss_remaining_sec` — remaining seconds
 - `sensor.irrigation_bss_next_watering` — next scheduled run

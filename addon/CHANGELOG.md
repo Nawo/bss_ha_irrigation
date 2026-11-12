@@ -1,3 +1,11 @@
+## 2.1.2
+
+### 💄 Status sensor: clear "inactive" state
+
+- **Inactive label**: When nothing is watering and nothing is planned for today, `sensor.irrigation_bss_watering_status` now shows `Nieaktywne` / `Inactive` / `Inaktiv` instead of the dangling `Oczekuje -` / `Pending -`.
+- **Inactive icon**: The inactive state uses `mdi:water-off` instead of a sprinkler icon, so it no longer suggests that watering is in progress.
+- **`icon_color` attribute**: The status sensor publishes a suggested icon colour (`grey` when inactive) for Mushroom template cards (see DOCS).
+
 ## 2.1.1
 
 ### 🐛 Critical Fix: Sequential schedules only watering first zone

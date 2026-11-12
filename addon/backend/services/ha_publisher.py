@@ -48,7 +48,7 @@ STATUS_LABELS: dict[str, dict[str, str]] = {
         "rain_blocked":       "Blocked - rain",
         "rain_today_blocked": "Blocked - rained today",
         "frost_protection":   "Blocked - frost",
-        "inactive":           "Pending - ",
+        "inactive":           "Inactive",
         "friendly_name":      "Irrigation BSS - Watering Status",
     },
     "pl": {
@@ -57,7 +57,7 @@ STATUS_LABELS: dict[str, dict[str, str]] = {
         "rain_blocked":       "Zablokowane - deszcz",
         "rain_today_blocked": "Zablokowane - dziś padało",
         "frost_protection":   "Zablokowane - mróz",
-        "inactive":           "Oczekuje - ",
+        "inactive":           "Nieaktywne",
         "friendly_name":      "Irrigation BSS - Status podlewania",
     },
     "de": {
@@ -66,7 +66,7 @@ STATUS_LABELS: dict[str, dict[str, str]] = {
         "rain_blocked":       "Blockiert - Regen",
         "rain_today_blocked": "Blockiert - heute geregnet",
         "frost_protection":   "Blockiert - Frost",
-        "inactive":           "Ausstehend - ",
+        "inactive":           "Inaktiv",
         "friendly_name":      "Irrigation BSS - Bewässerungsstatus",
     },
 }
@@ -78,7 +78,18 @@ STATE_ICONS: dict[str, str] = {
     "rain_blocked":       "mdi:weather-rainy",
     "rain_today_blocked": "mdi:weather-rainy",
     "frost_protection":   "mdi:snowflake",
-    "inactive":           "mdi:sprinkler-variant",
+    "inactive":           "mdi:water-off",
+}
+
+# Map machine_state -> suggested icon colour (Mushroom / card-mod colour names).
+# HA core cards cannot read it; dashboards use the `icon_color` attribute.
+STATE_COLORS: dict[str, str] = {
+    "active":             "blue",
+    "planned":            "light-blue",
+    "rain_blocked":       "amber",
+    "rain_today_blocked": "amber",
+    "frost_protection":   "cyan",
+    "inactive":           "grey",
 }
 
 
@@ -247,6 +258,7 @@ def _build_core_entities(
         ("sensor.irrigation_bss_watering_status", display_state, {
             "friendly_name": _friendly_name(lang),
             "icon": dynamic_icon,
+            "icon_color": STATE_COLORS.get(machine_state, "grey"),
             "integration": INTEGRATION_TAG,
             "status_reason": skip.value if skip else None,
             "state_value": machine_state,
